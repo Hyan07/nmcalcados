@@ -1,0 +1,34 @@
+{
+  "name": "nm-calcados",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "migrate": "node src/database/migrate.js",
+    "seed": "node src/database/seed.js",
+    "expire-reservations": "node src/database/expire.js",
+    "test": "node tests/rules.test.js",
+    "test:db": "node tests/integration.test.js"
+  },
+  "dependencies": {
+    "@zxing/library": "^0.21.3",
+    "bcrypt": "^6.0.0",
+    "cloudinary": "^2.7.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.1",
+    "helmet": "^8.1.0",
+    "multer": "^2.0.1",
+    "mysql2": "^3.14.0",
+    "zod": "^4.0.5"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}

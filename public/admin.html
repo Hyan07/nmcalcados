@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#11236b" />
+    <title>Painel | N&M Calçados</title>
+    <link rel="stylesheet" href="/css/admin.css" />
+    <script type="module" src="/js/admin.js"></script>
+  </head>
+  <body>
+    <div id="login-screen" class="login-screen">
+      <div class="login-art">
+        <a class="brand" href="/">
+          <img src="/images/nm-logo.png" alt="" />
+          <span>N&M Calçados</span>
+        </a>
+        <div>
+          <span class="eyebrow">NOSSA LOJA, EM MOVIMENTO</span>
+          <h1>Cada detalhe<br />faz a diferença.</h1>
+          <p>
+            Seu espaço para cuidar dos produtos, das pessoas e dos próximos
+            passos do negócio.
+          </p>
+        </div>
+        <small>PAINEL INTERNO • N&M CALÇADOS</small>
+      </div>
+      <div class="login-content">
+        <form id="login-form" class="login-card">
+          <span class="eyebrow">BEM-VINDO DE VOLTA</span>
+          <h2>Entre na sua conta</h2>
+          <p>Gerencie sua loja com simplicidade.</p>
+          <label
+            >E-mail<input
+              name="email"
+              type="email"
+              required
+              autocomplete="username"
+              placeholder="voce@loja.com" /></label
+          ><label
+            >Senha<input
+              name="password"
+              type="password"
+              required
+              autocomplete="current-password"
+              placeholder="Sua senha" /></label
+          ><button class="primary-button" type="submit">
+            Entrar no painel <span>↗</span>
+          </button>
+          <div id="login-error" role="alert"></div>
+        </form>
+      </div>
+    </div>
+    <div id="app-shell" class="app-shell" hidden>
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-top">
+          <a class="brand" href="/">
+            <img src="/images/nm-logo.png" alt="" />
+            <span>N&M Calçados</span>
+          </a>
+          <span class="workspace-tag">ÁREA DE GESTÃO</span>
+        </div>
+        <div class="nav-label">MENU PRINCIPAL</div>
+        <nav id="side-nav" aria-label="Menu do painel">
+          <button data-view="dashboard" class="active">
+            <span>◫</span> Visão geral</button
+          ><button data-view="pos"><span>▣</span> Nova venda</button
+          ><button data-view="orders">
+            <span>◧</span> Pedidos <i id="order-badge"></i></button
+          ><button data-view="sales"><span>▤</span> Vendas</button
+          ><button data-view="products"><span>◇</span> Produtos</button
+          ><button data-view="stock"><span>▥</span> Estoque</button
+          ><button data-view="purchases"><span>⇣</span> Compras</button
+          ><button data-view="suppliers"><span>♧</span> Fornecedores</button
+          ><button data-view="customers"><span>♡</span> Clientes</button
+          ><button data-view="users"><span>♙</span> Usuários</button
+          ><button data-view="reports"><span>▥</span> Relatórios</button
+          ><button data-view="settings"><span>⚙</span> Configurações</button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="user-avatar" id="sidebar-avatar">NM</div>
+          <div class="sidebar-user">
+            <strong id="sidebar-name">Usuário</strong
+            ><small id="sidebar-role">Equipe N&M</small>
+          </div>
+          <button id="logout-button" title="Sair" aria-label="Sair">↗</button>
+        </div>
+      </aside>
+      <div class="sidebar-shade" id="sidebar-shade" hidden></div>
+      <div class="main-column">
+        <header class="admin-header">
+          <button id="menu-button" aria-label="Abrir menu">☰</button>
+          <div class="header-crumb">
+            N&M CALÇADOS <span>/</span>
+            <b id="header-crumb-title">Visão geral</b>
+          </div>
+          <div class="header-right">
+            <span id="header-date"></span
+            ><a href="/" target="_blank" rel="noopener">Ver loja ↗</a>
+            <div class="header-avatar" id="header-avatar">NM</div>
+          </div>
+        </header>
+        <main class="admin-main">
+          <div class="page-top">
+            <div>
+              <span class="eyebrow" id="view-eyebrow"
+                >SEU NEGÓCIO EM MOVIMENTO</span
+              >
+              <h1 id="view-title">Visão geral</h1>
+              <p id="view-subtitle">
+                Acompanhe o que acontece na sua loja hoje.
+              </p>
+            </div>
+            <div id="view-actions"></div>
+          </div>
+          <div id="view-content" aria-live="polite">
+            <div class="page-loader">Carregando dados...</div>
+          </div>
+        </main>
+      </div>
+    </div>
+    <dialog id="action-dialog" class="action-dialog">
+      <button
+        type="button"
+        id="dialog-close"
+        class="dialog-close"
+        aria-label="Fechar"
+      >
+        ×
+      </button>
+      <div id="dialog-content"></div>
+    </dialog>
+    <dialog id="camera-dialog" class="camera-dialog">
+      <div class="camera-head">
+        <div>
+          <span class="eyebrow">LEITURA PELO CELULAR</span>
+          <h2>Ler código de barras</h2>
+        </div>
+        <button id="camera-close" aria-label="Fechar câmera">×</button>
+      </div>
+      <video id="camera-video" autoplay playsinline muted></video>
+      <p>Aponte a câmera para o código do produto.</p>
+    </dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

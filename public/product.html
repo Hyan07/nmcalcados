@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#11236b" />
+    <title>%%TITLE%%</title>
+    <meta name="description" content="%%DESCRIPTION%%" />
+    <meta property="og:title" content="%%TITLE%%" />
+    <meta property="og:description" content="%%DESCRIPTION%%" />
+    <meta property="og:image" content="%%IMAGE%%" />
+    <meta property="og:url" content="%%URL%%" />
+    <meta property="og:type" content="product" />
+    <link rel="canonical" href="%%URL%%" />
+    <link rel="stylesheet" href="/css/store.css" />
+    <script type="module" src="/js/product.js"></script>
+  </head>
+  <body>
+    <div class="top-note">
+      SEU PRÓXIMO PAR ESTÁ AQUI <span>•</span> RESERVE ONLINE E RETIRE NA LOJA
+    </div>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/">
+          <img src="/images/nm-logo.png" alt="" />
+          <span>N&M Calçados</span>
+        </a>
+        <nav class="header-nav">
+          <a href="/#colecao">Coleção</a><a href="/#novidades">Novidades</a
+          ><a href="/#sobre">Nossa loja</a>
+        </nav>
+        <div class="header-actions">
+          <a class="back-link" href="/#colecao">Voltar à coleção ↗</a
+          ><button
+            class="bag-button"
+            id="cart-toggle"
+            aria-label="Abrir sacola"
+          >
+            <svg viewBox="0 0 24 24">
+              <path d="M4 8h16l-1 13H5L4 8Z" />
+              <path d="M9 9V6a3 3 0 0 1 6 0v3" /></svg
+            ><span id="cart-count">0</span>
+          </button>
+        </div>
+      </div>
+    </header>
+    <main class="product-page">
+      <div class="breadcrumb">
+        <a href="/">Início</a> / <a href="/#colecao">Coleção</a> /
+        <span id="breadcrumb-product">Produto</span>
+      </div>
+      <div class="product-layout">
+        <div class="product-gallery">
+          <div class="main-photo" id="main-photo"></div>
+          <div class="photo-thumbs" id="photo-thumbs"></div>
+        </div>
+        <div class="product-info">
+          <span class="eyebrow" id="product-brand"></span>
+          <h1 id="product-name">Carregando...</h1>
+          <p class="product-price" id="product-price"></p>
+          <p id="product-description"></p>
+          <div class="choice">
+            <span>Cor</span>
+            <div class="option-row" id="color-options"></div>
+          </div>
+          <div class="choice">
+            <span>Numeração <small id="stock-hint"></small></span>
+            <div class="option-row sizes" id="size-options"></div>
+          </div>
+          <div class="quantity-row">
+            <label>Quantidade<select id="product-quantity"></select></label
+            ><button class="button button-dark" id="add-to-cart">
+              Adicionar à sacola <span>↗</span>
+            </button>
+          </div>
+          <div class="product-assurance">
+            <div><b>✳</b><span>Reserva sem pagamento online</span></div>
+            <div><b>✳</b><span>Disponibilidade por numeração</span></div>
+            <div><b>✳</b><span>Atendimento pessoal da nossa equipe</span></div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <footer class="site-footer">
+      <div>
+        <a class="brand" href="/">
+          <img src="/images/nm-logo.png" alt="" />
+          <span>N&M Calçados</span>
+        </a>
+        <p>Seu estilo tem muitos caminhos.</p>
+      </div>
+      <div class="footer-bottom">© 2026 N&M Calçados.</div>
+    </footer>
+    <div class="drawer-backdrop" id="cart-backdrop" hidden></div>
+    <aside
+      class="cart-drawer"
+      id="cart-drawer"
+      aria-label="Sua sacola"
+      aria-hidden="true"
+    >
+      <div class="drawer-head">
+        <div>
+          <span class="eyebrow">SEUS ESCOLHIDOS</span>
+          <h2>Sua sacola</h2>
+        </div>
+        <button class="close-button" id="cart-close" aria-label="Fechar">
+          ×
+        </button>
+      </div>
+      <div id="cart-items" class="cart-items"></div>
+      <div class="drawer-footer">
+        <div class="cart-total">
+          <span>Total</span><strong id="cart-total">R$ 0,00</strong>
+        </div>
+        <p>
+          Sem pagamento online. Sua reserva será confirmada pela nossa equipe.
+        </p>
+        <button class="button button-dark full" id="checkout-open">
+          Reservar meus pares <span>↗</span>
+        </button>
+      </div>
+    </aside>
+    <dialog id="checkout-dialog" class="checkout-dialog">
+      <form id="checkout-form">
+        <button
+          type="button"
+          class="close-button dialog-close"
+          aria-label="Fechar"
+        >
+          ×</button
+        ><span class="eyebrow">QUASE LÁ</span>
+        <h2>Seus próximos passos<br />começam aqui.</h2>
+        <p>Deixe seus dados para a equipe confirmar sua reserva.</p>
+        <label
+          >Nome completo<input
+            name="name"
+            required
+            maxlength="120"
+            autocomplete="name" /></label
+        ><label
+          >Telefone / WhatsApp<input
+            name="phone"
+            required
+            maxlength="30"
+            autocomplete="tel" /></label
+        ><label
+          >E-mail <small>(opcional)</small
+          ><input
+            name="email"
+            type="email"
+            maxlength="190"
+            autocomplete="email" /></label
+        ><label
+          >CPF <small>(opcional)</small
+          ><input name="cpf" inputmode="numeric" maxlength="14" /></label
+        ><button type="submit" class="button button-dark full">
+          Enviar reserva <span>↗</span></button
+        ><small>Usaremos seus dados somente para atender este pedido.</small>
+      </form>
+    </dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
