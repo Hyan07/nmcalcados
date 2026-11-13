@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "node --watch src/server.js",
@@ -12,8 +12,12 @@
     "migrate": "node src/database/migrate.js",
     "seed": "node src/database/seed.js",
     "expire-reservations": "node src/database/expire.js",
-    "test": "node tests/rules.test.js",
-    "test:db": "node tests/integration.test.js"
+    "test": "node --test tests/rules.test.js tests/legacy.test.js tests/production.test.js",
+    "test:db": "node tests/integration.test.js",
+    "migrate:gescom": "node src/database/legacy/migrate.js",
+    "inspect:gescom": "node src/database/legacy/inspect.js",
+    "test:gescom:db": "node --test tests/legacy-db.test.js",
+    "test:gescom:live": "node --test tests/legacy-live.test.js"
   },
   "dependencies": {
     "@zxing/library": "^0.21.3",
@@ -24,11 +28,13 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.0.1",
     "helmet": "^8.1.0",
+    "mssql": "^12.7.14",
     "multer": "^2.0.1",
     "mysql2": "^3.14.0",
     "zod": "^4.0.5"
   },
   "devDependencies": {
     "prettier": "^3.6.2"
-  }
+  },
+  "main": "src/server.js"
 }

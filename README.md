@@ -31,11 +31,11 @@ O modelo separa `products`, `product_variants` e `product_images`. Cada variaç�
 
 ## Requisitos e instalação local
 
-- Node.js 20 ou superior, npm, MySQL 8.0 ou superior.
+- Node.js 22 ou superior, npm, MySQL 8.0 ou superior.
 - Conta Cloudinary apenas para upload de fotos de produtos.
 
 ```bash
-npm install
+npm ci
 cp .env.example .env
 ```
 
@@ -94,16 +94,119 @@ npm run expire-reservations
 
 A tarefa trabalha em lotes de 100 e repete até esvaziar a fila. O serviço também impede a conversão de reservas vencidas antes do cron processá-las.
 
-## Deploy na Hostinger
+## Produção na Hostinger
 
-1. Crie um site Node.js e um banco MySQL no hPanel. Anote host, porta, banco, usuário e senha reais.
-2. Faça upload/deploy do projeto sem `node_modules` e sem `.env`. Configure as variáveis do `.env.example` no ambiente do aplicativo. Use `NODE_ENV=production`, `APP_ORIGIN=https://seu-dominio` e `SESSION_SECRET` forte.
-3. Defina o comando de instalação como `npm install` e o de inicialização como `npm start`. O app escuta `PORT` do ambiente. Se houver proxy reverso, ajuste `TRUST_PROXY` conforme o número de proxies confiáveis.
-4. Execute `npm run migrate` e `npm run seed` no ambiente da hospedagem. Para segurança, remova `ADMIN_PASSWORD` das variáveis depois de criar o administrador.
-5. Configure as três variáveis Cloudinary e teste upload. Ative HTTPS antes de usar a câmera no celular.
-6. Programe `npm run expire-reservations` no cron do hPanel. Garanta que o cron use o mesmo diretório e variáveis do app.
+Use um plano com **aplicações Node.js** (Business/Cloud compatível), Node.js 22 ou superior e MySQL 8+. Este projeto Express precisa de processo Node: upload de `public/` como site estático não executa o sistema. Referências oficiais: [aplicação Node.js](https://www.hostinger.com/support/how-to-deploy-a-nodejs-website-in-hostinger/), [MySQL com Node.js](https://www.hostinger.com/support/connecting-a-hostinger-mysql-database-to-a-node-js-application/), [variáveis de ambiente](https://www.hostinger.com/support/how-to-add-environment-variables-during-node-js-application-deployment/).
 
-Não inclua arquivos de imagens de produtos no deploy. O arquivo decorativo do hero faz parte do código, enquanto as fotos cadastradas são persistidas no Cloudinary.
+### 1. Provisionar e configurar MySQL
+
+No hPanel, abra o gerenciamento do site → Bancos de dados → MySQL, crie um banco e um usuário vinculado, com senha forte. Use os **nomes completos com prefixo** exibidos pelo painel em DB_NAME e DB_USER. O banco deve usar utf8mb4. Guarde um backup antes de aplicar migrations sobre um banco existente.
+
+Na aplicação Node da Hostinger, configure as variáveis pelo painel, sem enviar .env ao GitHub:
+
+```dotenv
+NODE_ENV=production
+APP_ORIGIN=https://seu-dominio.com.br
+TRUST_PROXY=1
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=nome_completo_do_banco
+DB_USER=nome_completo_do_usuario
+DB_PASSWORD=senha_definida_no_hpanel
+DB_CONNECTION_LIMIT=10
+DB_SSL=false
+SESSION_SECRET=segredo_aleatorio_gerado_por_voce
+RESERVATION_EXPIRATION_HOURS=24
+```
+
+DB_HOST=127.0.0.1 é para o aplicativo hospedado junto ao MySQL; use os valores específicos fornecidos pelo hPanel quando diferentes. DB_SOCKET_PATH deve ficar vazio na Hostinger. Para acesso remoto, use o host externo informado em MySQL remoto, libere apenas o IP do computador de migração e habilite TLS validado com DB_SSL=true (DB_SSL_CA_FILE pode apontar para a CA do provedor). Se não houver TLS disponível, utilize um túnel SSH privado, em vez de transmitir credenciais pela internet. Revogue o acesso remoto ao terminar.
+
+Gere SESSION_SECRET com `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` e guarde o resultado apenas no gerenciador de segredos/ambiente. APP_ORIGIN precisa ser a origem HTTPS exata, sem barra final. TRUST_PROXY=1 serve para um proxy confiável; confirme a topologia da hospedagem antes de alterá-lo. PORT é fornecida pela plataforma; o servidor escuta em 0.0.0.0. Sem banco acessível, o processo falha na inicialização.
+
+Configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY e CLOUDINARY_API_SECRET para fotos. O segredo de sessão e as credenciais são obrigatórios em produção; exemplos e valores vazios são rejeitados.
+
+### 2. Instalação, migrations e administrador
+
+Conecte o repositório Hyan07/nmcalcados à aplicação no hPanel, selecione a raiz do repositório, framework Express e entrada **src/server.js**. Instalação: `npm ci --omit=dev`; inicialização: `npm start`. Não há build de frontend. Não configure migrations ou importação de dados como comando automático de build/start.
+
+No terminal que tenha acesso ao MySQL de destino e às mesmas variáveis, dentro da raiz do projeto:
+
+```bash
+npm ci --omit=dev
+npm run migrate
+npm run seed
+```
+
+Antes do seed configure ADMIN_NAME, ADMIN_EMAIL e ADMIN_PASSWORD (12+ caracteres). Depois remova ADMIN_PASSWORD do ambiente. O seed não substitui a senha de usuário existente. As migrations são registradas em schema_migrations, serializadas por lock MySQL e aplicadas na ordem. O usuário precisa de CREATE/ALTER/INDEX/REFERENCES durante esta etapa; não precisa criar o banco quando ele já foi provisionado no painel. A migration 002 é repetível após interrupção entre seus ALTERs. Faça backup antes de qualquer alteração de esquema; uma falha na migration inicial 001 exige restaurar o banco vazio/backup antes de tentar de novo, pois DDL MySQL não tem rollback global.
+
+Se o plano não oferecer terminal para comandos avulsos, execute-os em um computador autorizado com acesso remoto seguro ao MySQL. Não substitua o host interno do aplicativo pelo endereço externo permanentemente.
+
+### 3. Configurar GescomPro
+
+O servidor web usa apenas MySQL. A conexão SQL Server é separada e carregada somente pelos comandos legados. No ambiente do computador que executará a migração configure:
+
+```dotenv
+GESCOM_DB_HOST=host_acessivel_do_sql_server
+GESCOM_DB_PORT=1433
+GESCOM_DB_NAME=GescomPro
+GESCOM_DB_USER=usuario_somente_select
+GESCOM_DB_PASSWORD=senha_do_usuario
+GESCOM_DB_ENCRYPT=true
+GESCOM_DB_TRUST_SERVER_CERTIFICATE=false
+```
+
+A conta deve ter apenas SELECT. Nenhum comando cria ou altera objetos no Gescom. Prefira certificado SQL Server confiável. A conexão antiga deste ambiente exigiu GESCOM_DB_ENCRYPT=false e GESCOM_DB_TRUST_SERVER_CERTIFICATE=true, cujo uso foi autorizado apenas na rede privada para a validação; esses valores não são o padrão do código. Não exponha SQL Server na internet para atender ao deploy. Um endereço privado da loja não será acessível diretamente pela Hostinger: rode o importador numa máquina da rede/VPN, conectada de forma segura ao MySQL de destino. Remova as variáveis GESCOM do servidor web depois da migração.
+
+### 4. Inspeção e dry-run
+
+O [mapeamento validado e suas exceções](docs/gescom-mapping.md) documenta as tabelas reais. O histórico está em Pre_Venda, não nas tabelas Vendas vazias.
+
+```bash
+npm run inspect:gescom
+npm run migrate:gescom -- --dry-run
+```
+
+O dry-run lê as duas bases e valida referências, estados, saldos e colisões, sem INSERT/UPDATE/DDL no MySQL. Rode migrations e seed antes. A coluna imported no relatório representa **quantidades projetadas** quando dryRun=true; committed=false confirma que nada foi gravado. Confira o arquivo privado em reports/gescom-*.json, sobretudo exceptions e errors. A saída não imprime nomes, senhas ou documentos de clientes. Os totais de referência são 710 produtos, 4.328 grades e 3.810 unidades; o resultado inclui 177 variações padrão e três produtos inativos para preservar grades órfãs.
+
+### 5. Migração real e conferência
+
+Faça backup do MySQL. Congele gravações no Gescom e no novo sistema, execute novamente o dry-run e confira as exceções antes da importação final. Não opere o caixa durante esta janela.
+
+```bash
+npm run migrate:gescom
+```
+
+O sucesso exige código de saída zero, errors vazio e committed=true. Erros de execução retornam código 1 e fazem rollback completo. O relatório mantém as quantidades e a indicação rolledBack em falhas de escrita. Não apague os mapeamentos em legacy_records: repetir o comando ignora registros já importados e não redefine o estoque. Alterações posteriores na origem são relatadas, sem sobrescrever a nova operação.
+
+Compare os totais do relatório e execute no MySQL:
+
+```sql
+SELECT entity, COUNT(*) FROM legacy_records WHERE source='gescompro' GROUP BY entity;
+SELECT SUM(v.physical_stock) AS estoque_importado
+FROM product_variants v JOIN legacy_records l
+ ON l.entity='product_variants' AND l.target_id=v.id AND l.source='gescompro';
+SELECT COUNT(*) AS vendas_historicas FROM sales WHERE is_historical=1;
+```
+
+Logo após a carga, a soma importada deve ser 3.810 para a fonte analisada. O relatório distingue saldo de grades e de variações padrão. Estoque anterior do destino não é substituído. Vendas antigas não reduzem saldo nem podem ser canceladas pelo fluxo normal; pagamentos e devoluções precisam de conciliação financeira, conforme o documento de mapeamento. Guarde relatório e backup com acesso restrito. Para desfazer uma carga confirmada, restaure o backup durante a janela de manutenção; não use DELETEs avulsos em tabelas relacionadas.
+
+### 6. Iniciar e verificar produção
+
+Depois da migração/conferência, inicie ou reinicie a aplicação pelo hPanel com:
+
+```bash
+npm start
+```
+
+Ative HTTPS e confira `/`, `/admin`, `/health` (processo) e `/health/ready` (MySQL, responde 503 quando indisponível). Teste login, catálogo e upload; faça operações de caixa apenas em ambiente de teste. SIGTERM/SIGINT encerram o HTTP e o pool de forma controlada.
+
+Configure `npm run expire-reservations` a cada cinco minutos, usando o diretório absoluto do projeto e as mesmas variáveis do aplicativo. Por exemplo, no cron de um ambiente com Node no PATH:
+
+```cron
+*/5 * * * * cd /caminho/absoluto/do/projeto && /caminho/absoluto/do/npm run expire-reservations
+```
+
+Use os caminhos reais obtidos no terminal da hospedagem. Mantenha backups periódicos MySQL e monitore erros de runtime, disponibilidade e execução do cron. Credenciais, dumps, reports/ e node_modules/ não devem ser enviados no pacote de deploy.
 
 ## Endpoints principais
 
@@ -143,6 +246,8 @@ Testa invariantes de estoque, estados do pedido, centavos, CPF e permissão. Par
 ```bash
 RUN_DB_TESTS=1 npm run test:db
 ```
+
+Para testar o importador com dados sintéticos, use **outro banco vazio** com nome terminado em `_test`, aplique migrations e seed e execute `RUN_DB_TESTS=1 npm run test:gescom:db`. Esse teste insere uma pequena fixture para validar idempotência e bloqueio de cancelamento; não o execute sobre uma importação de teste existente. O ensaio opcional com fonte real (`RUN_GESCOM_LIVE_TESTS=1 npm run test:gescom:live`) sempre desfaz os INSERTs e exige banco de teste sem mapeamentos anteriores.
 
 O teste de integração disputa a última unidade com duas reservas simultâneas e verifica conversão, cancelamento, venda presencial, compra e liberação de reserva. Nunca use o banco de produção para esse teste.
 

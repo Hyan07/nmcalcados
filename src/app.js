@@ -3,6 +3,7 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { pool } from "./database/pool.js";
 import { env } from "./config/env.js";
 import publicRoutes from "./routes/publicRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
@@ -40,6 +41,14 @@ app.use("/api/public", publicRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
+app.get("/health/ready", async (_req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ status: "ready" });
+  } catch {
+    res.status(503).json({ status: "unavailable" });
+  }
+});
 app.use(express.static(root, { index: false, maxAge: env.prod ? "7d" : 0 }));
 app.get("/", (_req, res) => res.sendFile(path.join(root, "index.html")));
 app.get("/admin", (_req, res) => res.sendFile(path.join(root, "admin.html")));

@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import mysql from "mysql2/promise";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { env } from "../config/env.js";
 
 const dir = path.join(
@@ -37,23 +37,35 @@ const conn = await mysql.createConnection({
   multipleStatements: true,
 });
 try {
+  const [lock] = await conn.query(
+    "SELECT GET_LOCK(SHA2(CONCAT(DATABASE(),':schema-migrations'),256),0) acquired",
+  );
+  if (lock[0].acquired !== 1)
+    throw new Error("Outra execução de migrations está em andamento");
   await conn.query(
     "CREATE TABLE IF NOT EXISTS schema_migrations (name VARCHAR(255) PRIMARY KEY, applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)",
   );
   for (const name of (await fs.readdir(dir))
-    .filter((x) => x.endsWith(".sql"))
+    .filter((x) => /\.(sql|js)$/.test(x))
     .sort()) {
     const [rows] = await conn.execute(
       "SELECT name FROM schema_migrations WHERE name = ?",
       [name],
     );
     if (rows.length) continue;
-    await conn.query(await fs.readFile(path.join(dir, name), "utf8"));
+    if (name.endsWith(".js"))
+      await (await import(pathToFileURL(path.join(dir, name)).href)).up(conn);
+    else await conn.query(await fs.readFile(path.join(dir, name), "utf8"));
     await conn.execute("INSERT INTO schema_migrations (name) VALUES (?)", [
       name,
     ]);
     console.info(`Migração aplicada: ${name}`);
   }
 } finally {
+  await conn
+    .query(
+      "SELECT RELEASE_LOCK(SHA2(CONCAT(DATABASE(),':schema-migrations'),256))",
+    )
+    .catch(() => {});
   await conn.end();
 }

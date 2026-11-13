@@ -183,10 +183,16 @@ export async function convertOrder(id, payment, user, ip) {
 export async function cancelSale(id, user, ip) {
   return transaction(async (conn) => {
     const [rows] = await conn.execute(
-      "SELECT id,status,order_id FROM sales WHERE id=? FOR UPDATE",
+      "SELECT id,status,order_id,is_historical FROM sales WHERE id=? FOR UPDATE",
       [id],
     );
     if (!rows.length) throw notFound("Venda");
+    if (rows[0].is_historical)
+      throw new AppError(
+        "Venda histórica é somente leitura; ajuste pelo procedimento de conciliação.",
+        409,
+        "HISTORICAL_SALE",
+      );
     if (rows[0].status !== "CONCLUIDA")
       throw new AppError("Venda já cancelada.", 409, "INVALID_TRANSITION");
     const [items] = await conn.execute(

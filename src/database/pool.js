@@ -4,10 +4,11 @@ import { env } from "../config/env.js";
 export const pool = mysql.createPool({
   ...env.db,
   waitForConnections: true,
-  queueLimit: 0,
+  queueLimit: 100,
   connectTimeout: 10000,
   enableKeepAlive: true,
   decimalNumbers: false,
+  charset: "utf8mb4",
   timezone: "Z",
 });
 // TIMESTAMP é convertido pelo fuso da sessão MySQL antes de chegar ao driver.

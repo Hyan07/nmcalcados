@@ -42,7 +42,7 @@ export async function reports({ start, end, productId, categoryId } = {}) {
         [startDate, endDate],
       ),
       pool.execute(
-        `SELECT si.product_name,SUM(si.quantity) quantity,SUM(si.subtotal) total FROM sale_items si JOIN sales s ON s.id=si.sale_id JOIN product_variants v ON v.id=si.variant_id JOIN products p ON p.id=v.product_id WHERE s.status='CONCLUIDA' AND DATE(s.created_at) BETWEEN ? AND ? AND (? IS NULL OR p.id=?) AND (? IS NULL OR p.category_id=?) GROUP BY si.product_name ORDER BY quantity DESC LIMIT 20`,
+        `SELECT si.product_name,SUM(si.quantity) quantity,SUM(si.subtotal) total FROM sale_items si JOIN sales s ON s.id=si.sale_id LEFT JOIN product_variants v ON v.id=si.variant_id LEFT JOIN products p ON p.id=COALESCE(si.product_id,v.product_id) WHERE s.status='CONCLUIDA' AND DATE(s.created_at) BETWEEN ? AND ? AND (? IS NULL OR p.id=?) AND (? IS NULL OR p.category_id=?) GROUP BY si.product_name ORDER BY quantity DESC LIMIT 20`,
         [
           startDate,
           endDate,
