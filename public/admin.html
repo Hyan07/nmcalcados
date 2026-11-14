@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#11236b" />
     <title>Painel | N&M Calçados</title>
-    <link rel="stylesheet" href="/css/admin.css" />
-    <script type="module" src="/js/admin.js"></script>
+    <link rel="stylesheet" href="/css/admin.css?v=20261113-ui" />
+    <script type="module" src="/js/admin.js?v=20261113-ui"></script>
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Pular para o conteúdo</a>
     <div id="login-screen" class="login-screen">
       <div class="login-art">
         <a class="brand" href="/">
@@ -17,7 +18,10 @@
         </a>
         <div>
           <span class="eyebrow">NOSSA LOJA, EM MOVIMENTO</span>
-          <h1>Cada detalhe<br />faz a diferença.</h1>
+          <h1>
+            Cada detalhe<br />
+            faz a diferença.
+          </h1>
           <p>
             Seu espaço para cuidar dos produtos, das pessoas e dos próximos
             passos do negócio.
@@ -52,30 +56,67 @@
       </div>
     </div>
     <div id="app-shell" class="app-shell" hidden>
-      <aside class="sidebar" id="sidebar">
+      <aside class="sidebar" id="sidebar" aria-label="Navegação da gestão">
         <div class="sidebar-top">
+          <button
+            id="sidebar-close"
+            class="sidebar-close"
+            aria-label="Fechar menu"
+          >
+            ×
+          </button>
           <a class="brand" href="/">
             <img src="/images/nm-logo.png" alt="" />
             <span>N&M Calçados</span>
           </a>
           <span class="workspace-tag">ÁREA DE GESTÃO</span>
         </div>
-        <div class="nav-label">MENU PRINCIPAL</div>
         <nav id="side-nav" aria-label="Menu do painel">
-          <button data-view="dashboard" class="active">
-            <span>◫</span> Visão geral</button
-          ><button data-view="pos"><span>▣</span> Nova venda</button
-          ><button data-view="orders">
-            <span>◧</span> Pedidos <i id="order-badge"></i></button
-          ><button data-view="sales"><span>▤</span> Vendas</button
-          ><button data-view="products"><span>◇</span> Produtos</button
-          ><button data-view="stock"><span>▥</span> Estoque</button
-          ><button data-view="purchases"><span>⇣</span> Compras</button
-          ><button data-view="suppliers"><span>♧</span> Fornecedores</button
-          ><button data-view="customers"><span>♡</span> Clientes</button
-          ><button data-view="users"><span>♙</span> Usuários</button
-          ><button data-view="reports"><span>▥</span> Relatórios</button
-          ><button data-view="settings"><span>⚙</span> Configurações</button>
+          <button data-view="pos" class="nav-sale">
+            <span aria-hidden="true">＋</span> Nova venda
+          </button>
+          <div class="nav-section">
+            <span class="nav-label">ACOMPANHAR</span>
+            <button data-view="dashboard" class="active">
+              <span aria-hidden="true">◫</span> Visão geral
+            </button>
+            <button data-view="orders">
+              <span aria-hidden="true">◧</span> Pedidos <i id="order-badge"></i>
+            </button>
+            <button data-view="sales">
+              <span aria-hidden="true">▤</span> Vendas
+            </button>
+          </div>
+          <div class="nav-section">
+            <span class="nav-label">PRODUTOS E ESTOQUE</span>
+            <button data-view="products">
+              <span aria-hidden="true">◇</span> Produtos
+            </button>
+            <button data-view="stock">
+              <span aria-hidden="true">▥</span> Estoque
+            </button>
+            <button data-view="purchases">
+              <span aria-hidden="true">⇣</span> Compras
+            </button>
+            <button data-view="suppliers">
+              <span aria-hidden="true">♧</span> Fornecedores
+            </button>
+          </div>
+          <div class="nav-section">
+            <span class="nav-label">GESTÃO DA LOJA</span>
+            <button data-view="customers">
+              <span aria-hidden="true">♡</span> Clientes
+            </button>
+            <button data-view="reports">
+              <span aria-hidden="true">▥</span> Relatórios
+            </button>
+            <button data-view="users">
+              <span aria-hidden="true">♙</span> Usuários
+            </button>
+            <button data-view="settings">
+              <span aria-hidden="true">⚙</span> Configurações
+            </button>
+          </div>
         </nav>
         <div class="sidebar-bottom">
           <div class="user-avatar" id="sidebar-avatar">NM</div>
@@ -89,7 +130,14 @@
       <div class="sidebar-shade" id="sidebar-shade" hidden></div>
       <div class="main-column">
         <header class="admin-header">
-          <button id="menu-button" aria-label="Abrir menu">☰</button>
+          <button
+            id="menu-button"
+            aria-label="Abrir menu"
+            aria-controls="sidebar"
+            aria-expanded="false"
+          >
+            ☰
+          </button>
           <div class="header-crumb">
             N&M CALÇADOS <span>/</span>
             <b id="header-crumb-title">Visão geral</b>
@@ -100,7 +148,7 @@
             <div class="header-avatar" id="header-avatar">NM</div>
           </div>
         </header>
-        <main class="admin-main">
+        <main class="admin-main" id="main-content" tabindex="-1">
           <div class="page-top">
             <div>
               <span class="eyebrow" id="view-eyebrow"
@@ -119,6 +167,23 @@
         </main>
       </div>
     </div>
+    <nav
+      id="mobile-nav"
+      class="mobile-nav"
+      aria-label="Atalhos do painel"
+      hidden
+    >
+      <button data-view="dashboard">
+        <span aria-hidden="true">◫</span> Início
+      </button>
+      <button data-view="pos"><span aria-hidden="true">＋</span> Vender</button>
+      <button data-view="products">
+        <span aria-hidden="true">◇</span> Produtos
+      </button>
+      <button data-view="stock">
+        <span aria-hidden="true">▥</span> Estoque
+      </button>
+    </nav>
     <dialog id="action-dialog" class="action-dialog">
       <button
         type="button"

@@ -18,12 +18,14 @@
       content="Uma curadoria de calçados para todos os seus caminhos."
     />
     <meta property="og:type" content="website" />
-    <link rel="stylesheet" href="/css/store.css" />
-    <script type="module" src="/js/store.js"></script>
+    <link rel="stylesheet" href="/css/store.css?v=20261113-ui" />
+    <script type="module" src="/js/store.js?v=20261113-ui"></script>
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Pular para o conteúdo</a>
     <div class="top-note">
-      SEU PRÓXIMO PAR ESTÁ AQUI <span>•</span> RESERVE ONLINE E RETIRE NA LOJA
+      <span class="top-note-lead">SEU PRÓXIMO PAR ESTÁ AQUI</span>
+      <span class="top-note-dot">•</span> RESERVE ONLINE E RETIRE NA LOJA
     </div>
     <header class="site-header">
       <div class="header-inner">
@@ -40,6 +42,8 @@
             class="icon-button"
             id="search-toggle"
             aria-label="Abrir busca"
+            aria-controls="search-panel"
+            aria-expanded="false"
           >
             <svg viewBox="0 0 24 24">
               <circle cx="11" cy="11" r="7" />
@@ -57,25 +61,25 @@
           </button>
         </div>
       </div>
-    </header>
-    <div id="search-panel" class="search-panel" hidden>
-      <label for="global-search">O que você procura?</label>
-      <div class="search-row">
-        <input
-          id="global-search"
-          placeholder="Tênis, sandália, marca..."
-        /><button id="search-submit" aria-label="Pesquisar">
-          Buscar <span>↗</span>
-        </button>
+      <div id="search-panel" class="search-panel" hidden>
+        <label for="global-search">O que você procura?</label>
+        <div class="search-row">
+          <input
+            id="global-search"
+            placeholder="Tênis, sandália, marca..."
+          /><button id="search-submit" aria-label="Pesquisar">
+            Buscar <span>↗</span>
+          </button>
+        </div>
       </div>
-    </div>
-    <main>
+    </header>
+    <main id="main-content" tabindex="-1">
       <section class="hero">
         <div class="hero-image"></div>
         <div class="hero-overlay"></div>
         <div class="hero-content">
           <span class="eyebrow">CURADORIA N&M / 2026</span>
-          <h1>Elegância para<br />cada novo<br /><em>passo.</em></h1>
+          <h1>Elegância para<br />cada novo <em>passo.</em></h1>
           <p>
             Peças para acompanhar o seu ritmo. Encontre o par que combina com
             cada momento seu.
@@ -102,7 +106,21 @@
             favoritos da nossa seleção.
           </p>
         </div>
-        <div class="category-links" id="category-links"></div>
+        <div class="category-strip">
+          <div
+            class="category-links"
+            id="category-links"
+            role="group"
+            aria-label="Escolher categoria"
+          ></div>
+          <button
+            id="categories-next"
+            class="category-next"
+            aria-label="Ver mais categorias"
+          >
+            →
+          </button>
+        </div>
       </section>
       <section class="catalog-section" id="colecao">
         <div class="catalog-heading">
@@ -113,25 +131,34 @@
           <p id="result-count">Carregando coleção...</p>
         </div>
         <div class="catalog-layout">
-          <aside class="filters">
+          <aside class="filters" id="catalog-filters">
             <div class="filters-title">
-              <h3>Filtros</h3>
-              <button id="clear-filters">Limpar</button>
+              <h3 id="filters-heading">Encontre seu par</h3>
+              <div>
+                <button id="clear-filters">Limpar</button
+                ><button
+                  id="close-filters"
+                  class="filter-close"
+                  aria-label="Fechar filtros"
+                >
+                  ×
+                </button>
+              </div>
             </div>
             <label
-              >Categoria<select id="filter-category">
+              >Categoria<select id="filter-category" aria-label="Categoria">
                 <option value="">Todas</option>
               </select></label
             ><label
-              >Marca<select id="filter-brand">
+              >Marca<select id="filter-brand" aria-label="Marca">
                 <option value="">Todas</option>
               </select></label
             ><label
-              >Numeração<select id="filter-size">
+              >Numeração<select id="filter-size" aria-label="Numeração">
                 <option value="">Todas</option>
               </select></label
             ><label
-              >Cor<select id="filter-color">
+              >Cor<select id="filter-color" aria-label="Cor">
                 <option value="">Todas</option>
               </select></label
             >
@@ -157,10 +184,40 @@
               ><input id="filter-available" type="checkbox" /> Somente
               disponíveis</label
             >
+            <div class="filter-footer">
+              <button id="apply-filters" class="button button-dark full">
+                Ver produtos <span>↗</span>
+              </button>
+            </div>
           </aside>
           <div class="catalog-results">
+            <form id="catalog-search-form" class="catalog-search" role="search">
+              <label class="sr-only" for="catalog-search"
+                >Buscar na coleção</label
+              >
+              <input
+                id="catalog-search"
+                type="search"
+                placeholder="Busque um modelo ou marca..."
+                autocomplete="off"
+              />
+              <button type="submit">
+                Buscar <span aria-hidden="true">↗</span>
+              </button>
+            </form>
+            <div
+              id="active-filters"
+              class="active-filters"
+              aria-label="Filtros selecionados"
+            ></div>
             <div class="mobile-filter-row">
-              <button id="mobile-filters">☷ &nbsp; Filtrar produtos</button
+              <button
+                id="mobile-filters"
+                aria-haspopup="dialog"
+                aria-controls="filter-dialog"
+                aria-expanded="false"
+              >
+                ☷ &nbsp; Filtrar produtos</button
               ><span id="mobile-result-count"></span>
             </div>
             <div class="product-grid" id="product-grid">
@@ -207,6 +264,11 @@
         © 2026 N&M Calçados. Feito para acompanhar você.
       </div>
     </footer>
+    <dialog
+      id="filter-dialog"
+      class="filter-dialog"
+      aria-labelledby="filters-heading"
+    ></dialog>
     <div class="drawer-backdrop" id="cart-backdrop" hidden></div>
     <aside
       class="cart-drawer"

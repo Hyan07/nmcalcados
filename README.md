@@ -208,6 +208,14 @@ Configure `npm run expire-reservations` a cada cinco minutos, usando o diretóri
 
 Use os caminhos reais obtidos no terminal da hospedagem. Mantenha backups periódicos MySQL e monitore erros de runtime, disponibilidade e execução do cron. Credenciais, dumps, reports/ e node_modules/ não devem ser enviados no pacote de deploy.
 
+## Layout e uso em diferentes telas
+
+A identidade usa azul-marinho, dourado, tons claros, DM Sans e Playfair Display. A vitrine tem categorias em faixa horizontal, busca na coleção, filtros selecionados removíveis e uma janela de filtros em telas de até 900 px. O detalhe do produto, a sacola e os formulários se adaptam ao celular.
+
+No painel, o menu é agrupado por operação e gestão. Até 1024 px ele abre sobre a página; até 600 px há atalhos inferiores e as tabelas viram cartões com os mesmos campos. O PDV mantém leitura por GTIN/SKU, campos de quantidade/desconto identificados e acesso ao resumo pelo celular. Teclado, Escape, foco visível e preferência por movimento reduzido são respeitados.
+
+Ao publicar alterações visuais, atualize o parâmetro de versão dos arquivos CSS/JS nos HTMLs para evitar que o cache da hospedagem mantenha arquivos antigos. As prévias de desenvolvimento usam dados fictícios, sem gravar vendas ou reservas no banco de produção.
+
 ## Endpoints principais
 
 | Público                          | Função                                |

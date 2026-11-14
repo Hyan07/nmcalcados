@@ -12,12 +12,14 @@
     <meta property="og:url" content="%%URL%%" />
     <meta property="og:type" content="product" />
     <link rel="canonical" href="%%URL%%" />
-    <link rel="stylesheet" href="/css/store.css" />
-    <script type="module" src="/js/product.js"></script>
+    <link rel="stylesheet" href="/css/store.css?v=20261113-ui" />
+    <script type="module" src="/js/product.js?v=20261113-ui"></script>
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Pular para o conteúdo</a>
     <div class="top-note">
-      SEU PRÓXIMO PAR ESTÁ AQUI <span>•</span> RESERVE ONLINE E RETIRE NA LOJA
+      <span class="top-note-lead">SEU PRÓXIMO PAR ESTÁ AQUI</span>
+      <span class="top-note-dot">•</span> RESERVE ONLINE E RETIRE NA LOJA
     </div>
     <header class="site-header">
       <div class="header-inner">
@@ -25,7 +27,7 @@
           <img src="/images/nm-logo.png" alt="" />
           <span>N&M Calçados</span>
         </a>
-        <nav class="header-nav">
+        <nav class="header-nav" aria-label="Menu principal">
           <a href="/#colecao">Coleção</a><a href="/#novidades">Novidades</a
           ><a href="/#sobre">Nossa loja</a>
         </nav>
@@ -44,7 +46,7 @@
         </div>
       </div>
     </header>
-    <main class="product-page">
+    <main class="product-page" id="main-content" tabindex="-1">
       <div class="breadcrumb">
         <a href="/">Início</a> / <a href="/#colecao">Coleção</a> /
         <span id="breadcrumb-product">Produto</span>

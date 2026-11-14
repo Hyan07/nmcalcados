@@ -145,10 +145,18 @@ function setView(view) {
   $("#view-content").innerHTML =
     '<div class="page-loader">Carregando dados...</div>';
   document
-    .querySelectorAll("#side-nav button")
-    .forEach((x) => x.classList.toggle("active", x.dataset.view === view));
-  $("#sidebar").classList.remove("open");
-  $("#sidebar-shade").hidden = true;
+    .querySelectorAll("#side-nav [data-view], #mobile-nav [data-view]")
+    .forEach((button) => {
+      const active =
+        button.dataset.view === view ||
+        (view === "productEditor" && button.dataset.view === "products");
+      button.classList.toggle("active", active);
+      if (active) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
+    });
+  document.querySelector(".admin-main").dataset.view = view;
+  closeSidebar(false);
+  $("#main-content").focus({ preventScroll: true });
   history.replaceState({}, "", `/admin#${view}`);
   renderView().catch((error) => {
     toast(error.message, "error");
@@ -186,8 +194,23 @@ async function renderView() {
       return settings();
   }
 }
-const table = (heads, items, render) =>
-  `<div class="table-wrap"><table class="data-table"><thead><tr>${heads.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${items.length ? items.map(render).join("") : `<tr><td colspan="${heads.length}">Nenhum registro encontrado.</td></tr>`}</tbody></table></div>`;
+const table = (heads, items, render) => {
+  const rows = items
+    .map((item) => {
+      const template = document.createElement("template");
+      template.innerHTML = `<table><tbody>${render(item)}</tbody></table>`;
+      const tr = template.content.querySelector("tr");
+      tr.setAttribute("role", "row");
+      [...tr.children].forEach((cell, index) => {
+        cell.dataset.label = heads[index] || "Ações";
+        cell.setAttribute("role", "cell");
+        if (!heads[index]) cell.classList.add("cell-actions");
+      });
+      return tr.outerHTML;
+    })
+    .join("");
+  return `<div class="table-wrap"><table class="data-table" role="table"><caption class="sr-only">${esc(viewInfo[currentView]?.[1] || "Registros")}</caption><thead role="rowgroup"><tr role="row">${heads.map((h) => `<th scope="col" role="columnheader">${h || '<span class="sr-only">Ações</span>'}</th>`).join("")}</tr></thead><tbody role="rowgroup">${items.length ? rows : `<tr class="table-empty" role="row"><td role="cell" colspan="${heads.length}">Nenhum registro encontrado.</td></tr>`}</tbody></table></div>`;
+};
 const pagination = (result, callback) => {
   const pages = Math.ceil(result.total / result.limit);
   if (pages <= 1) return "";
@@ -205,7 +228,7 @@ async function dashboard() {
     '<button class="primary-button" id="dash-pos">+ Nova venda <span>↗</span></button>';
   $("#dash-pos").onclick = () => setView("pos");
   $("#view-content").innerHTML =
-    `<div class="stat-grid"><div class="stat-card"><span>VENDAS HOJE</span><div class="stat-icon">↗</div><strong>${fmt(d.salesToday.total)}</strong><small>${d.salesToday.count} venda(s) concluída(s)</small></div><div class="stat-card"><span>PEDIDOS EM ABERTO</span><div class="stat-icon">◧</div><strong>${d.pendingOrders}</strong><small>Reservas para acompanhar</small></div><div class="stat-card"><span>ESTOQUE BAIXO</span><div class="stat-icon">▥</div><strong>${d.lowStock}</strong><small>Variações no mínimo ou abaixo</small></div><div class="stat-card"><span>PRODUTOS MAIS VENDIDOS</span><div class="stat-icon">◇</div><strong>${d.topProducts.length}</strong><small>Modelos em destaque</small></div></div><div class="quick-actions"><button data-go="orders">Ver pedidos ↗</button><button data-go="stock">Conferir estoque ↗</button><button data-go="products">Gerenciar produtos ↗</button></div><div class="dashboard-grid"><div><div class="section-title"><h2>Pedidos recentes</h2><a href="#orders" data-go="orders">Ver todos ↗</a></div><div class="panel">${table(["PEDIDO", "CLIENTE", "DATA", "TOTAL", "STATUS"], d.recentOrders, (x) => `<tr><td><strong>#${x.id}</strong></td><td>${esc(x.customer_name)}</td><td>${date(x.created_at)}</td><td>${fmt(x.total)}</td><td>${badge(x.status)}</td></tr>`)}</div></div><div><div class="section-title"><h2>Mais vendidos</h2></div><div class="panel"><ul class="mini-list">${d.topProducts.length ? d.topProducts.map((x, i) => `<li><span>${String(i + 1).padStart(2, "0")} &nbsp; ${esc(x.product_name)}</span><small>${x.quantity} un.</small></li>`).join("") : "<li><span>As vendas aparecerão aqui.</span></li>"}</ul></div></div></div>`;
+    `<div class="stat-grid"><div class="stat-card"><span>VENDAS HOJE</span><div class="stat-icon">↗</div><strong>${fmt(d.salesToday.total)}</strong><small>${d.salesToday.count} venda(s) concluída(s)</small></div><div class="stat-card"><span>PEDIDOS EM ABERTO</span><div class="stat-icon">◧</div><strong>${d.pendingOrders}</strong><small>Reservas para acompanhar</small></div><div class="stat-card"><span>ESTOQUE BAIXO</span><div class="stat-icon">▥</div><strong>${d.lowStock}</strong><small>Variações no mínimo ou abaixo</small></div><div class="stat-card"><span>PRODUTOS MAIS VENDIDOS</span><div class="stat-icon">◇</div><strong>${d.topProducts.length}</strong><small>Modelos em destaque</small></div></div><div class="quick-actions"><button data-go="orders">Ver pedidos ↗</button><button data-go="stock">Conferir estoque ↗</button><button data-go="products">Gerenciar produtos ↗</button>${can("reports.view") ? '<button data-go="reports">Ver relatórios ↗</button>' : ""}</div><div class="dashboard-grid"><div><div class="section-title"><h2>Pedidos recentes</h2><a href="#orders" data-go="orders">Ver todos ↗</a></div><div class="panel">${table(["PEDIDO", "CLIENTE", "DATA", "TOTAL", "STATUS"], d.recentOrders, (x) => `<tr><td><strong>#${x.id}</strong></td><td>${esc(x.customer_name)}</td><td>${date(x.created_at)}</td><td>${fmt(x.total)}</td><td>${badge(x.status)}</td></tr>`)}</div></div><div><div class="section-title"><h2>Mais vendidos</h2></div><div class="panel"><ul class="mini-list">${d.topProducts.length ? d.topProducts.map((x, i) => `<li><span>${String(i + 1).padStart(2, "0")} &nbsp; ${esc(x.product_name)}</span><small>${x.quantity} un.</small></li>`).join("") : "<li><span>As vendas aparecerão aqui.</span></li>"}</ul></div></div></div>`;
   bindGo();
 }
 function bindGo() {
@@ -305,7 +328,7 @@ async function products(page = 1) {
     setView("productEditor");
   });
   $("#view-content").innerHTML =
-    `<div class="toolbar"><input id="product-search" placeholder="Buscar produto pelo nome" value="${esc(q)}"><button class="secondary-button" id="product-search-btn">Buscar</button></div><div class="panel">${table(["PRODUTO", "MARCA", "CATEGORIA", "PREÇO", "VARIAÇÕES", "STATUS", ""], d.items, (x) => `<tr><td><strong>${esc(x.name)}</strong><br><small>${esc(x.model || "")}</small></td><td>${esc(x.brand || "—")}</td><td>${esc(x.category || "—")}</td><td>${fmt(x.price)}</td><td>${x.variant_count}</td><td>${x.active ? badge("CONCLUIDA") : badge("CANCELADO")}</td><td><button data-product="${x.id}">Editar ↗</button></td></tr>`)}</div>${pagination(d)}`;
+    `<div class="toolbar"><input id="product-search" placeholder="Buscar produto pelo nome" value="${esc(q)}"><button class="secondary-button" id="product-search-btn">Buscar</button></div><div class="panel">${table(["PRODUTO", "MARCA", "CATEGORIA", "PREÇO", "VARIAÇÕES", "STATUS", ""], d.items, (x) => `<tr><td><strong>${esc(x.name)}</strong><br><small>${esc(x.model || "")}</small></td><td>${esc(x.brand || "—")}</td><td>${esc(x.category || "—")}</td><td>${fmt(x.price)}</td><td>${x.variant_count}</td><td>${x.active ? badge("ATIVO") : badge("INATIVO")}</td><td><button data-product="${x.id}">Editar ↗</button></td></tr>`)}</div>${pagination(d)}`;
   $("#product-search-btn").onclick = () => {
     filters.productSearch = $("#product-search").value;
     products();
@@ -344,7 +367,7 @@ async function productEditor() {
       )
       .join("");
   $("#view-content").innerHTML =
-    `<div class="product-edit"><div class="panel"><h3>Dados do produto</h3><form id="product-form" class="form-grid">${field("Nome *", "name", product?.name || "", "text", 'required maxlength="190"')}${field("Modelo", "model", product?.model || "")}${field("Preço de venda *", "price", product?.price || "", "number", 'min="0" step="0.01" required')}${field("Custo", "cost", product?.cost || 0, "number", 'min="0" step="0.01"')}<label class="field">Marca<select name="brandId">${options(facets.brands, product?.brand_id)}</select></label><label class="field">Categoria<select name="categoryId">${options(facets.categories, product?.category_id)}</select></label><label class="field full">Descrição<textarea name="description">${esc(product?.description || "")}</textarea></label><label class="field check"><input type="checkbox" name="featured" ${product?.featured ? "checked" : ""}> Produto em destaque</label><label class="field check"><input type="checkbox" name="active" ${product == null || Boolean(product.active) ? "checked" : ""}> Produto ativo</label><div class="form-actions field full"><button class="primary-button" type="submit">Salvar produto ↗</button></div></form></div><div><div class="panel"><div class="panel-head"><h3>Variações</h3>${product && can("products.create") ? '<button id="new-variant">+ Nova variação</button>' : ""}</div>${product ? (product.variants.length ? product.variants.map((v) => `<div class="variant-row"><strong>${esc(v.color)}</strong><strong>${esc(v.size)}</strong><span>${v.physical_stock - v.reserved_stock} disp.</span><small>${esc(v.sku || "")}</small><button class="text-button" data-variant="${v.id}">Editar</button></div>`).join("") : "<p>Adicione cores e numerações.</p>") : "<p>Salve o produto para cadastrar variações.</p>"}</div><div class="panel" style="margin-top:16px"><h3>Fotos do produto</h3>${product ? `<form id="upload-form"><input type="file" name="images" accept="image/jpeg,image/png,image/webp" multiple required><div class="form-actions"><button class="secondary-button" type="submit">Enviar fotos</button></div></form><div class="image-grid">${product.images.map((img) => `<div class="image-tile"><img src="${esc(img.url)}" alt="Foto de ${esc(product.name)}"><button data-move-image="${img.id}" data-position="${img.position - 1}" aria-label="Mover foto para cima">↑</button><button data-move-image="${img.id}" data-position="${img.position + 1}" aria-label="Mover foto para baixo">↓</button><button data-primary="${img.id}">${img.is_primary ? "Principal" : "Tornar principal"}</button><button data-delete-image="${img.id}" class="delete-img">Excluir</button></div>`).join("")}</div>` : "<p>Salve o produto para enviar fotos.</p>"}</div></div></div>`;
+    `<div class="product-edit"><div class="panel"><h3>Dados do produto</h3><form id="product-form" class="form-grid">${field("Nome *", "name", product?.name || "", "text", 'required maxlength="190"')}${field("Modelo", "model", product?.model || "")}${field("Preço de venda *", "price", product?.price || "", "number", 'min="0" step="0.01" required')}${field("Custo", "cost", product?.cost || 0, "number", 'min="0" step="0.01"')}<label class="field">Marca<select name="brandId">${options(facets.brands, product?.brand_id)}</select></label><label class="field">Categoria<select name="categoryId">${options(facets.categories, product?.category_id)}</select></label><label class="field full">Descrição<textarea name="description">${esc(product?.description || "")}</textarea></label><label class="field check"><input type="checkbox" name="featured" ${product?.featured ? "checked" : ""}> Produto em destaque</label><label class="field check"><input type="checkbox" name="active" ${product == null || Boolean(product.active) ? "checked" : ""}> Produto ativo</label><div class="form-actions field full"><button class="primary-button" type="submit">Salvar produto ↗</button></div></form></div><div><div class="panel"><div class="panel-head"><h3>Variações</h3>${product && can("products.create") ? '<button id="new-variant">+ Nova variação</button>' : ""}</div>${product ? (product.variants.length ? product.variants.map((v) => `<div class="variant-row"><strong>${esc(v.color)}</strong><strong>${esc(v.size)}</strong><span>${v.physical_stock - v.reserved_stock} disp.</span><small>${esc(v.sku || "")}</small><button class="text-button" data-variant="${v.id}">Editar</button></div>`).join("") : "<p>Adicione cores e numerações.</p>") : "<p>Salve o produto para cadastrar variações.</p>"}</div><div class="panel" style="margin-top:16px"><h3>Fotos do produto</h3>${product ? `<form id="upload-form"><input type="file" aria-label="Selecionar fotos do produto" name="images" accept="image/jpeg,image/png,image/webp" multiple required><div class="form-actions"><button class="secondary-button" type="submit">Enviar fotos</button></div></form><div class="image-grid">${product.images.map((img) => `<div class="image-tile"><img src="${esc(img.url)}" alt="Foto de ${esc(product.name)}"><button data-move-image="${img.id}" data-position="${img.position - 1}" aria-label="Mover foto para cima">↑</button><button data-move-image="${img.id}" data-position="${img.position + 1}" aria-label="Mover foto para baixo">↓</button><button data-primary="${img.id}">${img.is_primary ? "Principal" : "Tornar principal"}</button><button data-delete-image="${img.id}" class="delete-img">Excluir</button></div>`).join("")}</div>` : "<p>Salve o produto para enviar fotos.</p>"}</div></div></div>`;
   $("#product-form").onsubmit = async (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
@@ -531,7 +554,7 @@ async function pos() {
   posCart = [];
   $("#view-actions").innerHTML = "";
   $("#view-content").innerHTML =
-    `<div class="pos-layout"><div class="panel"><div class="panel-head"><h3>Adicionar produtos</h3></div><div class="scanner-bar"><input id="barcode-input" placeholder="Passe o leitor ou digite o código de barras/SKU" autocomplete="off"><button class="secondary-button" id="camera-btn">▣ &nbsp; Ler código</button></div><p style="margin:10px 0;color:#858a82;font-size:11px">Leitores USB funcionam como teclado: a leitura entra automaticamente ao pressionar Enter.</p><div class="toolbar"><input id="pos-search" placeholder="Ou procure pelo nome do produto"><button class="secondary-button" id="pos-search-btn">Buscar</button></div><div class="search-results" id="pos-results"></div></div><div class="panel pos-cart"><h3>Esta venda</h3><div id="pos-lines"></div><div class="pos-total"><span>Total</span><strong id="pos-total">R$ 0,00</strong></div><div class="pos-pay"><label class="field">Desconto geral<input id="pos-discount" type="number" min="0" step="0.01" value="0"></label><label class="field">Pagamento<select id="pos-payment">${paymentOptions()}</select></label><button class="primary-button" id="finish-sale">Finalizar venda ↗</button></div></div></div>`;
+    `<div class="pos-layout"><div class="panel"><div class="panel-head"><div><span class="eyebrow">01 / PRODUTOS</span><h3>Encontre o próximo par</h3></div></div><label class="input-label" for="barcode-input">Código de barras ou SKU</label><div class="scanner-bar"><input id="barcode-input" placeholder="Leia ou digite o código" autocomplete="off"><button class="secondary-button" id="camera-btn">▣ &nbsp; Ler código</button></div><p class="scanner-hint">Passe o leitor ou digite o código e pressione Enter.</p><div class="toolbar"><input id="pos-search" placeholder="Ou procure pelo nome do produto"><button class="secondary-button" id="pos-search-btn">Buscar</button></div><div class="search-results" id="pos-results"></div><button class="secondary-button pos-summary" id="pos-summary" hidden>Ver resumo da venda ↓</button></div><div class="panel pos-cart"><span class="eyebrow">02 / RESUMO</span><h3>Esta venda</h3><div id="pos-lines"></div><div class="pos-total"><span>Total</span><strong id="pos-total">R$ 0,00</strong></div><div class="pos-pay"><label class="field">Desconto geral<input id="pos-discount" type="number" min="0" step="0.01" value="0"></label><label class="field">Pagamento<select id="pos-payment">${paymentOptions()}</select></label><button class="primary-button" id="finish-sale">Finalizar venda ↗</button></div></div></div>`;
   $("#barcode-input").onkeydown = async (e) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
@@ -553,6 +576,10 @@ async function pos() {
     if (e.key === "Enter") searchPos();
   };
   $("#camera-btn").onclick = openCamera;
+  $("#pos-summary").onclick = () =>
+    document
+      .querySelector(".pos-cart")
+      .scrollIntoView({ behavior: "smooth", block: "start" });
   $("#pos-discount").oninput = renderPosCart;
   $("#finish-sale").onclick = finishSale;
   renderPosCart();
@@ -635,7 +662,7 @@ function renderPosCart() {
     ? posCart
         .map(
           (x) =>
-            `<div class="pos-line"><div><strong>${esc(x.productName)}</strong><br><small>${esc(x.color)} · ${esc(x.size)} · ${fmt(x.price)}</small></div><input type="number" min="1" max="${x.available}" value="${x.quantity}" data-pos-qty="${x.variantId}" aria-label="Quantidade"><input type="number" min="0" step="0.01" value="${x.discount}" data-pos-discount="${x.variantId}" aria-label="Desconto"><button data-pos-remove="${x.variantId}" aria-label="Remover">×</button></div>`,
+            `<div class="pos-line"><div><strong>${esc(x.productName)}</strong><br><small>${esc(x.color)} · ${esc(x.size)} · ${fmt(x.price)}</small></div><label class="pos-number">Qtd.<input type="number" inputmode="numeric" min="1" max="${x.available}" value="${x.quantity}" data-pos-qty="${x.variantId}" aria-label="Quantidade"></label><label class="pos-number">Desconto (R$)<input type="number" inputmode="decimal" min="0" step="0.01" value="${x.discount}" data-pos-discount="${x.variantId}" aria-label="Desconto"></label><button data-pos-remove="${x.variantId}" aria-label="Remover">×</button></div>`,
         )
         .join("")
     : '<div class="empty-state"><span>◇</span><h3>Venda vazia</h3><p>Leia um código ou busque um produto.</p></div>';
@@ -645,6 +672,12 @@ function renderPosCart() {
       0,
     ) - Number($("#pos-discount")?.value || 0);
   $("#pos-total").textContent = fmt(Math.max(0, total));
+  const summary = $("#pos-summary");
+  if (summary) {
+    const quantity = posCart.reduce((sum, line) => sum + line.quantity, 0);
+    summary.hidden = quantity === 0;
+    summary.textContent = `Ver resumo · ${quantity} ${quantity === 1 ? "item" : "itens"} ↓`;
+  }
   lines.querySelectorAll("[data-pos-qty]").forEach(
     (el) =>
       (el.onchange = () => {
@@ -941,7 +974,7 @@ async function entities(type, page = 1) {
     : "";
   $("#new-entity")?.addEventListener("click", () => entityDialog(type, null));
   $("#view-content").innerHTML =
-    `<div class="toolbar"><input id="entity-search" placeholder="Buscar pelo nome" value="${esc(q)}"><button class="secondary-button" id="entity-search-btn">Buscar</button></div><div class="panel">${table(["NOME", "DOCUMENTO", "TELEFONE", "E-MAIL", "STATUS", ""], d.items, (x) => `<tr><td><strong>${esc(x.name)}</strong>${x.trade_name ? `<br><small>${esc(x.trade_name)}</small>` : ""}</td><td>${esc(x.tax_id || x.cpf || "—")}</td><td>${esc(x.phone || "—")}</td><td>${esc(x.email || "—")}</td><td>${x.active ? badge("CONCLUIDA") : badge("CANCELADO")}</td><td>${can(`${type}.manage`) ? `<button data-entity="${x.id}">Editar ↗</button>` : ""}</td></tr>`)}</div>${pagination(d)}`;
+    `<div class="toolbar"><input id="entity-search" placeholder="Buscar pelo nome" value="${esc(q)}"><button class="secondary-button" id="entity-search-btn">Buscar</button></div><div class="panel">${table(["NOME", "DOCUMENTO", "TELEFONE", "E-MAIL", "STATUS", ""], d.items, (x) => `<tr><td><strong>${esc(x.name)}</strong>${x.trade_name ? `<br><small>${esc(x.trade_name)}</small>` : ""}</td><td>${esc(x.tax_id || x.cpf || "—")}</td><td>${esc(x.phone || "—")}</td><td>${esc(x.email || "—")}</td><td>${x.active ? badge("ATIVO") : badge("INATIVO")}</td><td>${can(`${type}.manage`) ? `<button data-entity="${x.id}">Editar ↗</button>` : ""}</td></tr>`)}</div>${pagination(d)}`;
   $("#entity-search-btn").onclick = () => {
     filters[`${type}Q`] = $("#entity-search").value;
     entities(type);
@@ -992,7 +1025,7 @@ async function users() {
     '<button class="primary-button" id="new-user">+ Novo usuário ↗</button>';
   $("#new-user").onclick = () => userDialog(roles);
   $("#view-content").innerHTML =
-    `<div class="panel">${table(["USUÁRIO", "E-MAIL", "PERFIL", "STATUS", ""], data, (x) => `<tr><td><strong>${esc(x.name)}</strong></td><td>${esc(x.email)}</td><td>${esc(x.role)}</td><td>${x.active ? badge("CONCLUIDA") : badge("CANCELADO")}</td><td><button data-user="${x.id}">Permissões ↗</button></td></tr>`)}</div>`;
+    `<div class="panel">${table(["USUÁRIO", "E-MAIL", "PERFIL", "STATUS", ""], data, (x) => `<tr><td><strong>${esc(x.name)}</strong></td><td>${esc(x.email)}</td><td>${esc(x.role)}</td><td>${x.active ? badge("ATIVO") : badge("INATIVO")}</td><td><button data-user="${x.id}">Permissões ↗</button></td></tr>`)}</div>`;
   document.querySelectorAll("[data-user]").forEach(
     (btn) =>
       (btn.onclick = () =>
@@ -1142,8 +1175,14 @@ async function boot() {
       settings: "settings.view",
     };
     document
-      .querySelectorAll("#side-nav button")
+      .querySelectorAll("#side-nav [data-view], #mobile-nav [data-view]")
       .forEach((btn) => (btn.hidden = !can(permissions[btn.dataset.view])));
+    document.querySelectorAll(".nav-section").forEach((group) => {
+      group.hidden = !group.querySelector("button:not([hidden])");
+    });
+    $("#mobile-nav").hidden = !$("#mobile-nav").querySelector(
+      "button:not([hidden])",
+    );
     let view = location.hash.slice(1);
     if (!permissions[view] || !can(permissions[view]))
       view =
@@ -1153,6 +1192,7 @@ async function boot() {
   } catch {
     $("#login-screen").hidden = false;
     $("#app-shell").hidden = true;
+    $("#mobile-nav").hidden = true;
   }
 }
 $("#login-form").onsubmit = async (e) => {
@@ -1176,19 +1216,68 @@ $("#logout-button").onclick = async () => {
   } finally {
     location.hash = "";
     currentUser = null;
+    closeSidebar(false);
+    $("#mobile-nav").hidden = true;
     $("#app-shell").hidden = true;
     $("#login-screen").hidden = false;
   }
 };
-document
-  .querySelectorAll("#side-nav button")
-  .forEach((btn) => (btn.onclick = () => setView(btn.dataset.view)));
-$("#menu-button").onclick = () => {
-  $("#sidebar").classList.add("open");
-  $("#sidebar-shade").hidden = false;
-};
-$("#sidebar-shade").onclick = () => {
+const compactLayout = window.matchMedia("(max-width: 1024px)");
+function closeSidebar(restoreFocus = true) {
+  const wasOpen = $("#sidebar").classList.contains("open");
   $("#sidebar").classList.remove("open");
   $("#sidebar-shade").hidden = true;
+  $("#menu-button").setAttribute("aria-expanded", "false");
+  document.body.classList.remove("menu-open");
+  document.querySelector(".main-column").inert = false;
+  $("#mobile-nav").inert = false;
+  $("#sidebar").inert = compactLayout.matches;
+  if (compactLayout.matches) $("#sidebar").setAttribute("aria-hidden", "true");
+  else $("#sidebar").removeAttribute("aria-hidden");
+  if (wasOpen && restoreFocus) $("#menu-button").focus();
+}
+document
+  .querySelectorAll("#side-nav [data-view], #mobile-nav [data-view]")
+  .forEach((btn) => {
+    btn.onclick = () => {
+      setView(btn.dataset.view);
+      window.scrollTo({ top: 0, behavior: "instant" });
+    };
+  });
+$("#menu-button").onclick = () => {
+  $("#sidebar").inert = false;
+  $("#sidebar").removeAttribute("aria-hidden");
+  $("#sidebar").classList.add("open");
+  $("#sidebar-shade").hidden = false;
+  $("#menu-button").setAttribute("aria-expanded", "true");
+  document.body.classList.add("menu-open");
+  document.querySelector(".main-column").inert = true;
+  $("#mobile-nav").inert = true;
+  $("#sidebar-close").focus();
 };
+$("#sidebar-close").onclick = () => closeSidebar();
+$("#sidebar-shade").onclick = () => closeSidebar();
+document.addEventListener("keydown", (event) => {
+  if (!$("#sidebar").classList.contains("open")) return;
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeSidebar();
+  }
+  if (event.key === "Tab") {
+    const buttons = [
+      ...$("#sidebar").querySelectorAll("a,button:not([hidden])"),
+    ].filter((el) => el.getClientRects().length);
+    const first = buttons[0],
+      last = buttons.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+});
+compactLayout.addEventListener("change", () => closeSidebar());
+closeSidebar(false);
 boot();
