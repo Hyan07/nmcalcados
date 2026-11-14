@@ -164,11 +164,20 @@ export async function saveVariant(data, user, ip, id = null) {
   });
 }
 export async function findBarcode(barcode) {
+  const code = String(barcode ?? "").trim();
+  if (!code || code.length > 100)
+    throw new AppError("Informe um código de barras ou SKU válido.");
   const [rows] = await pool.execute(
     `SELECT v.id variantId,v.product_id productId,v.color,v.size,v.sku,v.barcode,COALESCE(v.price,p.price) price,
-    v.physical_stock-v.reserved_stock available,p.name productName FROM product_variants v JOIN products p ON p.id=v.product_id WHERE v.barcode=? AND v.active=1 AND p.active=1`,
-    [barcode],
+    v.physical_stock-v.reserved_stock available,p.name productName FROM product_variants v JOIN products p ON p.id=v.product_id WHERE (v.barcode=? OR v.sku=?) AND v.active=1 AND p.active=1 LIMIT 2`,
+    [code, code],
   );
-  if (!rows.length) throw notFound("Código de barras");
+  if (!rows.length) throw notFound("Código de barras ou SKU");
+  if (rows.length > 1)
+    throw new AppError(
+      "Código corresponde a mais de uma variação. Busque pelo nome do produto e confira a cor e o tamanho.",
+      409,
+      "AMBIGUOUS_PRODUCT_CODE",
+    );
   return rows[0];
 }

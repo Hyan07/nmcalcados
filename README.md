@@ -80,7 +80,7 @@ A foto decorativa da capa foi gerada pelo ImageGen integrado e salva em `public/
 
 ## Leitor USB e câmera
 
-No PDV, mantenha o foco no campo de código. Leitores USB que emulam teclado enviam os dígitos e Enter; leituras repetidas aumentam a quantidade até o limite disponível. A busca usa `GET /api/admin/products/barcode/:barcode`.
+No PDV, mantenha o foco no campo de código. Leitores USB que emulam teclado enviam os dígitos e Enter; leituras repetidas aumentam a quantidade até o limite disponível. A busca usa `GET /api/admin/products/barcode/:barcode` e aceita tanto o código de barras (GTIN) quanto o SKU da variação (`CodigoGrade` do Gescom). Se um código corresponder ao barcode de uma variação e ao SKU de outra, a API responde 409 e pede conferência por nome, cor e tamanho.
 
 No celular, o botão **Ler código** abre a câmera em HTTPS. O navegador usa `BarcodeDetector` quando disponível e carrega ZXing como fallback. Permita acesso à câmera para o site. Se a câmera ou a biblioteca não estiver disponível, o campo manual e a busca continuam funcionando.
 
