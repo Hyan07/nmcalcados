@@ -1752,3 +1752,22 @@ input[type="file"]::file-selector-button {
   font: inherit;
   cursor: pointer;
 }
+
+.stock-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+}
+.stock-filters .stock-search,
+.stock-filter-actions {
+  grid-column: 1 / -1;
+}
+.stock-filters input,
+.stock-filters select {
+  width: 100%;
+  min-width: 0;
+}
+.stock-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}

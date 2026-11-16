@@ -32,8 +32,8 @@ export const schemas = {
   }),
   variant: z.object({
     productId: id,
-    color: text(80),
-    size: text(20),
+    color: optionalText(80).transform((v) => v || "Padrão"),
+    size: optionalText(20).transform((v) => v || "Único"),
     sku: optionalText(100),
     barcode: optionalText(100),
     cost: cash.nullish(),
@@ -85,6 +85,20 @@ export const schemas = {
   }),
   payment: z.object({
     payment: z.enum(["DINHEIRO", "PIX", "DEBITO", "CREDITO", "OUTROS"]),
+  }),
+  stockQuery: z.object({
+    q: z.string().trim().max(190).default(""),
+    categoryId: z.preprocess((v) => (v === "" ? undefined : v), id.optional()),
+    brandId: z.preprocess((v) => (v === "" ? undefined : v), id.optional()),
+    color: z.string().trim().max(80).optional(),
+    size: z.string().trim().max(20).optional(),
+    availability: z
+      .enum(["", "available", "unavailable", "low", "reserved"])
+      .optional(),
+    active: z.enum(["", "active", "inactive"]).optional(),
+    low: z.union([z.boolean(), z.enum(["true", "false"])]).optional(),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().max(100).default(50),
   }),
   adjustment: z.object({
     variantId: id,

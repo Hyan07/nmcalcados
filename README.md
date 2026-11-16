@@ -55,7 +55,7 @@ Em ambiente local com socket Unix, `DB_SOCKET_PATH` pode ser usado no lugar de h
 
 1. Entre no painel com o administrador criado pelo seed.
 2. Cadastre um produto, escolha marca/categoria e salve.
-3. Adicione uma variação por cor e numeração. Informe SKU e código de barras, se houver.
+3. Adicione uma variação por cor e tamanho. Para produtos sem essas opções (como bolsas ou acessórios), deixe cor e tamanho em branco: o cadastro usa Padrão / Único. Informe SKU e código de barras, se houver.
 4. Use **Estoque → Ajustar estoque** para registrar a entrada inicial com motivo; ou receba uma compra de fornecedor.
 5. Envie fotos JPEG, PNG ou WEBP pelo produto, depois marque a principal. O upload exige Cloudinary configurado.
 6. O produto ativo aparece no catálogo. Um cliente escolhe uma variação disponível, reserva e o pedido aparece no painel.
@@ -265,3 +265,7 @@ O teste de integração disputa a última unidade com duas reservas simultâneas
 - Um pagamento por venda nesta versão; a tabela `payments` permite evolução futura.
 - Sem ERP financeiro, pagamento online ou integração fiscal.
 - Catálogo sem login; a reserva não cria venda automaticamente.
+
+O dashboard mostra **Investido em estoque** em reais e em milhares: soma do estoque físico multiplicado pelo custo da variação (ou custo do produto quando não há custo específico). Inclui unidades reservadas e produtos inativos que ainda têm saldo. Unidades com custo zerado ou não informado são indicadas no cartão. O indicador representa o estoque atual a custo cadastrado, sem incluir móveis, despesas ou mercadorias já vendidas.
+
+Na tela **Estoque**, pesquise por nome, modelo, SKU ou código de barras e combine os filtros de categoria, marca, cor/tom, tamanho/apresentação, disponibilidade (com saldo, sem saldo disponível, estoque baixo ou com reservas) e status. Os filtros são aplicados no banco e preservados na paginação; **Limpar filtros** retorna à listagem completa. A disponibilidade desconta as unidades reservadas.

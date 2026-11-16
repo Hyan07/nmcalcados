@@ -1,24 +1,32 @@
 import { pool } from "../database/pool.js";
 
 export async function dashboard() {
-  const [[sales], [orders], [low], [recent], [top]] = await Promise.all([
-    pool.query(
-      `SELECT COUNT(*) count,COALESCE(SUM(total),0) total FROM sales WHERE status='CONCLUIDA' AND DATE(created_at)=UTC_DATE()`,
-    ),
-    pool.query(
-      `SELECT COUNT(*) count FROM orders WHERE status IN ('PENDENTE','EM_ATENDIMENTO','CONFIRMADO')`,
-    ),
-    pool.query(
-      "SELECT COUNT(*) count FROM product_variants WHERE active=1 AND physical_stock-reserved_stock<=minimum_stock",
-    ),
-    pool.query(
-      `SELECT o.id,o.status,o.total,o.created_at,c.name customer_name FROM orders o JOIN customers c ON c.id=o.customer_id ORDER BY o.id DESC LIMIT 5`,
-    ),
-    pool.query(
-      `SELECT si.product_name,SUM(si.quantity) quantity FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE s.status='CONCLUIDA' GROUP BY si.product_name ORDER BY quantity DESC LIMIT 5`,
-    ),
-  ]);
+  const [[sales], [orders], [low], [recent], [top], [investment]] =
+    await Promise.all([
+      pool.query(
+        `SELECT COUNT(*) count,COALESCE(SUM(total),0) total FROM sales WHERE status='CONCLUIDA' AND DATE(created_at)=UTC_DATE()`,
+      ),
+      pool.query(
+        `SELECT COUNT(*) count FROM orders WHERE status IN ('PENDENTE','EM_ATENDIMENTO','CONFIRMADO')`,
+      ),
+      pool.query(
+        "SELECT COUNT(*) count FROM product_variants WHERE active=1 AND physical_stock-reserved_stock<=minimum_stock",
+      ),
+      pool.query(
+        `SELECT o.id,o.status,o.total,o.created_at,c.name customer_name FROM orders o JOIN customers c ON c.id=o.customer_id ORDER BY o.id DESC LIMIT 5`,
+      ),
+      pool.query(
+        `SELECT si.product_name,SUM(si.quantity) quantity FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE s.status='CONCLUIDA' GROUP BY si.product_name ORDER BY quantity DESC LIMIT 5`,
+      ),
+      pool.query(
+        `SELECT COALESCE(SUM(v.physical_stock * COALESCE(v.cost,p.cost,0)),0) total,
+      COALESCE(SUM(v.physical_stock),0) units,
+      COALESCE(SUM(CASE WHEN COALESCE(v.cost,p.cost,0)=0 THEN v.physical_stock ELSE 0 END),0) unitsWithoutCost
+      FROM product_variants v JOIN products p ON p.id=v.product_id`,
+      ),
+    ]);
   return {
+    stockInvestment: investment[0],
     salesToday: sales[0],
     pendingOrders: orders[0].count,
     lowStock: low[0].count,

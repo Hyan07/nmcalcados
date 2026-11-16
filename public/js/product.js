@@ -9,6 +9,17 @@ function selectedVariant() {
 }
 function renderSizes() {
   const variants = product.variants.filter((x) => x.color === color);
+  const uniqueSize =
+    variants.length === 1 &&
+    ["unico", "unica"].includes(
+      String(variants[0].size ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase(),
+    );
+  if (uniqueSize) size = variants[0].size;
+  $("#size-label").textContent = uniqueSize ? "Tamanho único " : "Tamanho ";
   $("#size-options").innerHTML = variants
     .map(
       (x) =>
@@ -22,7 +33,7 @@ function renderSizes() {
       : "Esgotado"
     : variants.every((x) => x.available < 1)
       ? "Esta cor está esgotada"
-      : "Selecione seu tamanho";
+      : "Selecione o tamanho";
   $("#product-quantity").innerHTML = selected
     ? Array.from(
         { length: Math.min(10, selected.available) },
@@ -52,7 +63,9 @@ function render() {
     )
     .join("");
   const colors = [...new Set(product.variants.map((x) => x.color))];
-  color = colors[0] || null;
+  color =
+    product.variants.find((x) => x.available > 0)?.color ?? colors[0] ?? null;
+  size = null;
   $("#color-options").innerHTML = colors
     .map(
       (x) =>
@@ -89,7 +102,7 @@ $("#size-options").addEventListener("click", (event) => {
 });
 $("#add-to-cart").addEventListener("click", () => {
   const variant = selectedVariant();
-  if (!variant) return toast("Escolha uma numeração.", "error");
+  if (!variant) return toast("Escolha o tamanho.", "error");
   addCart(product, variant, Number($("#product-quantity").value || 1));
 });
 try {

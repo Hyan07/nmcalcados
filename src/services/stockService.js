@@ -36,18 +36,75 @@ export async function adjustStock(data, user, ip) {
     };
   });
 }
-export async function stockList({ low = false, page = 1, limit = 50 } = {}) {
-  const p = Math.max(1, Number(page) || 1),
-    l = Math.min(100, Math.max(1, Number(limit) || 50));
-  const where = low
-    ? "WHERE v.physical_stock-v.reserved_stock<=v.minimum_stock"
-    : "";
+export async function stockFilters() {
+  const [[categories], [brands], [colors], [sizes]] = await Promise.all([
+    pool.query("SELECT id,name FROM categories ORDER BY name"),
+    pool.query("SELECT id,name FROM brands ORDER BY name"),
+    pool.query("SELECT DISTINCT color FROM product_variants ORDER BY color"),
+    pool.query("SELECT DISTINCT size FROM product_variants ORDER BY size"),
+  ]);
+  return {
+    categories,
+    brands,
+    colors: colors.map((x) => x.color),
+    sizes: sizes.map((x) => x.size),
+  };
+}
+export async function stockList({
+  q = "",
+  categoryId,
+  brandId,
+  color,
+  size,
+  availability,
+  active,
+  low = false,
+  page = 1,
+  limit = 50,
+} = {}) {
+  const p = Math.max(1, Math.floor(Number(page)) || 1),
+    l = Math.min(100, Math.max(1, Math.floor(Number(limit)) || 50));
+  const conditions = [],
+    args = [];
+  const term = String(q).trim();
+  if (term) {
+    conditions.push(
+      "(p.name LIKE ? OR p.model LIKE ? OR v.sku LIKE ? OR v.barcode LIKE ?)",
+    );
+    args.push(...Array(4).fill(`%${term}%`));
+  }
+  for (const [column, value] of [
+    ["p.category_id", categoryId],
+    ["p.brand_id", brandId],
+    ["v.color", color],
+    ["v.size", size],
+  ]) {
+    if (value != null && value !== "") {
+      conditions.push(`${column}=?`);
+      args.push(value);
+    }
+  }
+  const availabilityConditions = {
+    low: "v.physical_stock-v.reserved_stock<=v.minimum_stock",
+    available: "v.physical_stock>v.reserved_stock",
+    unavailable: "v.physical_stock-v.reserved_stock<=0",
+    reserved: "v.reserved_stock>0",
+  };
+  if (Object.hasOwn(availabilityConditions, availability))
+    conditions.push(availabilityConditions[availability]);
+  if (low === true || low === "true")
+    conditions.push(availabilityConditions.low);
+  if (active === "active") conditions.push("p.active=1 AND v.active=1");
+  if (active === "inactive") conditions.push("(p.active=0 OR v.active=0)");
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const from = "FROM product_variants v JOIN products p ON p.id=v.product_id";
   const [count] = await pool.query(
-    `SELECT COUNT(*) total FROM product_variants v ${where}`,
+    `SELECT COUNT(*) total ${from} ${where}`,
+    args,
   );
   const [items] = await pool.query(
-    `SELECT v.id,v.product_id,p.name product_name,v.color,v.size,v.sku,v.barcode,v.physical_stock,v.reserved_stock,v.physical_stock-v.reserved_stock available,v.minimum_stock FROM product_variants v JOIN products p ON p.id=v.product_id ${where} ORDER BY p.name,v.color,v.size LIMIT ? OFFSET ?`,
-    [l, (p - 1) * l],
+    `SELECT v.id,v.product_id,p.name product_name,v.color,v.size,v.sku,v.barcode,v.physical_stock,v.reserved_stock,v.physical_stock-v.reserved_stock available,v.minimum_stock,p.active product_active,v.active ${from} ${where} ORDER BY p.name,v.color,v.size,v.id LIMIT ? OFFSET ?`,
+    [...args, l, (p - 1) * l],
   );
   return { items, total: count[0].total, page: p, limit: l };
 }

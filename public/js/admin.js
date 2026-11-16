@@ -228,7 +228,7 @@ async function dashboard() {
     '<button class="primary-button" id="dash-pos">+ Nova venda <span>↗</span></button>';
   $("#dash-pos").onclick = () => setView("pos");
   $("#view-content").innerHTML =
-    `<div class="stat-grid"><div class="stat-card"><span>VENDAS HOJE</span><div class="stat-icon">↗</div><strong>${fmt(d.salesToday.total)}</strong><small>${d.salesToday.count} venda(s) concluída(s)</small></div><div class="stat-card"><span>PEDIDOS EM ABERTO</span><div class="stat-icon">◧</div><strong>${d.pendingOrders}</strong><small>Reservas para acompanhar</small></div><div class="stat-card"><span>ESTOQUE BAIXO</span><div class="stat-icon">▥</div><strong>${d.lowStock}</strong><small>Variações no mínimo ou abaixo</small></div><div class="stat-card"><span>PRODUTOS MAIS VENDIDOS</span><div class="stat-icon">◇</div><strong>${d.topProducts.length}</strong><small>Modelos em destaque</small></div></div><div class="quick-actions"><button data-go="orders">Ver pedidos ↗</button><button data-go="stock">Conferir estoque ↗</button><button data-go="products">Gerenciar produtos ↗</button>${can("reports.view") ? '<button data-go="reports">Ver relatórios ↗</button>' : ""}</div><div class="dashboard-grid"><div><div class="section-title"><h2>Pedidos recentes</h2><a href="#orders" data-go="orders">Ver todos ↗</a></div><div class="panel">${table(["PEDIDO", "CLIENTE", "DATA", "TOTAL", "STATUS"], d.recentOrders, (x) => `<tr><td><strong>#${x.id}</strong></td><td>${esc(x.customer_name)}</td><td>${date(x.created_at)}</td><td>${fmt(x.total)}</td><td>${badge(x.status)}</td></tr>`)}</div></div><div><div class="section-title"><h2>Mais vendidos</h2></div><div class="panel"><ul class="mini-list">${d.topProducts.length ? d.topProducts.map((x, i) => `<li><span>${String(i + 1).padStart(2, "0")} &nbsp; ${esc(x.product_name)}</span><small>${x.quantity} un.</small></li>`).join("") : "<li><span>As vendas aparecerão aqui.</span></li>"}</ul></div></div></div>`;
+    `<div class="stat-grid"><div class="stat-card"><span>VENDAS HOJE</span><div class="stat-icon">↗</div><strong>${fmt(d.salesToday.total)}</strong><small>${d.salesToday.count} venda(s) concluída(s)</small></div><div class="stat-card"><span>PEDIDOS EM ABERTO</span><div class="stat-icon">◧</div><strong>${d.pendingOrders}</strong><small>Reservas para acompanhar</small></div><div class="stat-card"><span>ESTOQUE BAIXO</span><div class="stat-icon">▥</div><strong>${d.lowStock}</strong><small>Variações no mínimo ou abaixo</small></div><div class="stat-card"><span>INVESTIDO EM ESTOQUE</span><div class="stat-icon">◇</div><strong>${fmt(d.stockInvestment.total)}</strong><small>${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(Number(d.stockInvestment.total) / 1000)} mil reais · ${Number(d.stockInvestment.units)} unidade(s)</small><small>Custo de compra × estoque físico, incluindo reservas</small>${Number(d.stockInvestment.unitsWithoutCost) > 0 ? `<small>${Number(d.stockInvestment.unitsWithoutCost)} unidade(s) com custo zerado ou não informado</small>` : ""}</div></div><div class="quick-actions"><button data-go="orders">Ver pedidos ↗</button><button data-go="stock">Conferir estoque ↗</button><button data-go="products">Gerenciar produtos ↗</button>${can("reports.view") ? '<button data-go="reports">Ver relatórios ↗</button>' : ""}</div><div class="dashboard-grid"><div><div class="section-title"><h2>Pedidos recentes</h2><a href="#orders" data-go="orders">Ver todos ↗</a></div><div class="panel">${table(["PEDIDO", "CLIENTE", "DATA", "TOTAL", "STATUS"], d.recentOrders, (x) => `<tr><td><strong>#${x.id}</strong></td><td>${esc(x.customer_name)}</td><td>${date(x.created_at)}</td><td>${fmt(x.total)}</td><td>${badge(x.status)}</td></tr>`)}</div></div><div><div class="section-title"><h2>Mais vendidos</h2></div><div class="panel"><ul class="mini-list">${d.topProducts.length ? d.topProducts.map((x, i) => `<li><span>${String(i + 1).padStart(2, "0")} &nbsp; ${esc(x.product_name)}</span><small>${x.quantity} un.</small></li>`).join("") : "<li><span>As vendas aparecerão aqui.</span></li>"}</ul></div></div></div>`;
   bindGo();
 }
 function bindGo() {
@@ -367,7 +367,7 @@ async function productEditor() {
       )
       .join("");
   $("#view-content").innerHTML =
-    `<div class="product-edit"><div class="panel"><h3>Dados do produto</h3><form id="product-form" class="form-grid">${field("Nome *", "name", product?.name || "", "text", 'required maxlength="190"')}${field("Modelo", "model", product?.model || "")}${field("Preço de venda *", "price", product?.price || "", "number", 'min="0" step="0.01" required')}${field("Custo", "cost", product?.cost || 0, "number", 'min="0" step="0.01"')}<label class="field">Marca<select name="brandId">${options(facets.brands, product?.brand_id)}</select></label><label class="field">Categoria<select name="categoryId">${options(facets.categories, product?.category_id)}</select></label><label class="field full">Descrição<textarea name="description">${esc(product?.description || "")}</textarea></label><label class="field check"><input type="checkbox" name="featured" ${product?.featured ? "checked" : ""}> Produto em destaque</label><label class="field check"><input type="checkbox" name="active" ${product == null || Boolean(product.active) ? "checked" : ""}> Produto ativo</label><div class="form-actions field full"><button class="primary-button" type="submit">Salvar produto ↗</button></div></form></div><div><div class="panel"><div class="panel-head"><h3>Variações</h3>${product && can("products.create") ? '<button id="new-variant">+ Nova variação</button>' : ""}</div>${product ? (product.variants.length ? product.variants.map((v) => `<div class="variant-row"><strong>${esc(v.color)}</strong><strong>${esc(v.size)}</strong><span>${v.physical_stock - v.reserved_stock} disp.</span><small>${esc(v.sku || "")}</small><button class="text-button" data-variant="${v.id}">Editar</button></div>`).join("") : "<p>Adicione cores e numerações.</p>") : "<p>Salve o produto para cadastrar variações.</p>"}</div><div class="panel" style="margin-top:16px"><h3>Fotos do produto</h3>${product ? `<form id="upload-form"><input type="file" aria-label="Selecionar fotos do produto" name="images" accept="image/jpeg,image/png,image/webp" multiple required><div class="form-actions"><button class="secondary-button" type="submit">Enviar fotos</button></div></form><div class="image-grid">${product.images.map((img) => `<div class="image-tile"><img src="${esc(img.url)}" alt="Foto de ${esc(product.name)}"><button data-move-image="${img.id}" data-position="${img.position - 1}" aria-label="Mover foto para cima">↑</button><button data-move-image="${img.id}" data-position="${img.position + 1}" aria-label="Mover foto para baixo">↓</button><button data-primary="${img.id}">${img.is_primary ? "Principal" : "Tornar principal"}</button><button data-delete-image="${img.id}" class="delete-img">Excluir</button></div>`).join("")}</div>` : "<p>Salve o produto para enviar fotos.</p>"}</div></div></div>`;
+    `<div class="product-edit"><div class="panel"><h3>Dados do produto</h3><form id="product-form" class="form-grid">${field("Nome *", "name", product?.name || "", "text", 'required maxlength="190"')}${field("Modelo", "model", product?.model || "")}${field("Preço de venda *", "price", product?.price || "", "number", 'min="0" step="0.01" required')}${field("Custo", "cost", product?.cost || 0, "number", 'min="0" step="0.01"')}<label class="field">Marca<select name="brandId">${options(facets.brands, product?.brand_id)}</select></label><label class="field">Categoria<select name="categoryId">${options(facets.categories, product?.category_id)}</select></label><label class="field full">Descrição<textarea name="description">${esc(product?.description || "")}</textarea></label><label class="field check"><input type="checkbox" name="featured" ${product?.featured ? "checked" : ""}> Produto em destaque</label><label class="field check"><input type="checkbox" name="active" ${product == null || Boolean(product.active) ? "checked" : ""}> Produto ativo</label><div class="form-actions field full"><button class="primary-button" type="submit">Salvar produto ↗</button></div></form></div><div><div class="panel"><div class="panel-head"><h3>Variações</h3>${product && can("products.create") ? '<button id="new-variant">+ Nova variação</button>' : ""}</div>${product ? (product.variants.length ? product.variants.map((v) => `<div class="variant-row"><strong>${esc(v.color)}</strong><strong>${esc(v.size)}</strong><span>${v.physical_stock - v.reserved_stock} disp.</span><small>${esc(v.sku || "")}</small><button class="text-button" data-variant="${v.id}">Editar</button></div>`).join("") : "<p>Adicione uma variação para controlar o estoque, com ou sem cor e tamanho.</p>") : "<p>Salve o produto para cadastrar variações.</p>"}</div><div class="panel" style="margin-top:16px"><h3>Fotos do produto</h3>${product ? `<form id="upload-form"><input type="file" aria-label="Selecionar fotos do produto" name="images" accept="image/jpeg,image/png,image/webp" multiple required><div class="form-actions"><button class="secondary-button" type="submit">Enviar fotos</button></div></form><div class="image-grid">${product.images.map((img) => `<div class="image-tile"><img src="${esc(img.url)}" alt="Foto de ${esc(product.name)}"><button data-move-image="${img.id}" data-position="${img.position - 1}" aria-label="Mover foto para cima">↑</button><button data-move-image="${img.id}" data-position="${img.position + 1}" aria-label="Mover foto para baixo">↓</button><button data-primary="${img.id}">${img.is_primary ? "Principal" : "Tornar principal"}</button><button data-delete-image="${img.id}" class="delete-img">Excluir</button></div>`).join("")}</div>` : "<p>Salve o produto para enviar fotos.</p>"}</div></div></div>`;
   $("#product-form").onsubmit = async (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
@@ -468,7 +468,7 @@ async function productEditor() {
 }
 function variantDialog(product, variant) {
   dialog(
-    `<span class="eyebrow">${esc(product.name)}</span><h2>${variant ? "Editar" : "Nova"} variação</h2><form id="variant-form" class="form-grid">${field("Cor *", "color", variant?.color || "", "text", "required")}${field("Numeração *", "size", variant?.size || "", "text", "required")}${field("SKU", "sku", variant?.sku || "")}${field("Código de barras", "barcode", variant?.barcode || "")}${field("Preço específico", "price", variant?.price || "", "number", 'min="0" step="0.01"')}${field("Custo específico", "cost", variant?.cost || "", "number", 'min="0" step="0.01"')}${field("Estoque mínimo", "minimumStock", variant?.minimum_stock ?? 2, "number", 'min="0"')}<label class="field check"><input name="active" type="checkbox" ${variant == null || Boolean(variant.active) ? "checked" : ""}> Ativa</label><div class="form-actions field full"><button class="primary-button" type="submit">Salvar variação ↗</button></div></form>`,
+    `<span class="eyebrow">${esc(product.name)}</span><h2>${variant ? "Editar" : "Nova"} variação</h2><form id="variant-form" class="form-grid">${field("Cor (opcional)", "color", variant?.color || "", "text", 'maxlength="80" placeholder="Padrão"')}${field("Tamanho (opcional)", "size", variant?.size || "", "text", 'maxlength="20" placeholder="Único"')}<p class="field full">Para produtos sem cor ou tamanho, deixe os campos em branco. O estoque será controlado como Padrão / Único.</p>${field("SKU", "sku", variant?.sku || "")}${field("Código de barras", "barcode", variant?.barcode || "")}${field("Preço específico", "price", variant?.price || "", "number", 'min="0" step="0.01"')}${field("Custo específico", "cost", variant?.cost || "", "number", 'min="0" step="0.01"')}${field("Estoque mínimo", "minimumStock", variant?.minimum_stock ?? 2, "number", 'min="0"')}<label class="field check"><input name="active" type="checkbox" ${variant == null || Boolean(variant.active) ? "checked" : ""}> Ativa</label><div class="form-actions field full"><button class="primary-button" type="submit">Salvar variação ↗</button></div></form>`,
   );
   $("#variant-form").onsubmit = async (e) => {
     e.preventDefault();
@@ -499,17 +499,70 @@ function variantDialog(product, variant) {
   };
 }
 async function stock(page = 1) {
-  const low = filters.stockLow || false;
-  const d = await api(`/api/admin/stock?${new URLSearchParams({ page, low })}`);
+  const selected = filters.stock || {};
+  const [d, facets] = await Promise.all([
+    api(`/api/admin/stock?${new URLSearchParams({ ...selected, page })}`),
+    api("/api/admin/stock/filters"),
+  ]);
+  const select = (label, name, values, all) =>
+    `<label class="field">${label}<select name="${name}"><option value="">${all}</option>${values.map((x) => `<option value="${esc(x.id)}" ${String(selected[name] || "") === String(x.id) ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>`;
   $("#view-actions").innerHTML = can("stock.adjust")
     ? '<button class="primary-button" id="adjust-stock">+ Ajustar estoque <span>↗</span></button>'
     : "";
   $("#adjust-stock")?.addEventListener("click", () => stockDialog());
   $("#view-content").innerHTML =
-    `<div class="toolbar"><label class="field check"><input id="low-only" type="checkbox" ${low ? "checked" : ""}> Somente estoque baixo</label><button class="secondary-button" id="movement-btn">Ver movimentações</button></div><div class="panel">${table(["PRODUTO", "COR / NÚMERO", "SKU", "FÍSICO", "RESERVADO", "DISPONÍVEL", "MÍNIMO"], d.items, (x) => `<tr><td><strong>${esc(x.product_name)}</strong></td><td>${esc(x.color)} · ${esc(x.size)}</td><td>${esc(x.sku || "—")}</td><td>${x.physical_stock}</td><td>${x.reserved_stock}</td><td><strong style="color:${x.available <= x.minimum_stock ? "#b45b4f" : "#304d3d"}">${x.available}</strong></td><td>${x.minimum_stock}</td></tr>`)}</div>${pagination(d)}`;
-  $("#low-only").onchange = (e) => {
-    filters.stockLow = e.target.checked;
-    stock();
+    `<form id="stock-filters" class="toolbar stock-filters" role="search" aria-label="Pesquisar estoque">
+      <label class="field stock-search">Pesquisar estoque<input name="q" type="search" placeholder="Nome, modelo, SKU ou código de barras" value="${esc(selected.q || "")}" maxlength="190"></label>
+      ${select("Categoria", "categoryId", facets.categories, "Todas as categorias")}
+      ${select("Marca", "brandId", facets.brands, "Todas as marcas")}
+      ${select(
+        "Cor / tom",
+        "color",
+        facets.colors.map((x) => ({ id: x, name: x })),
+        "Todas as cores / tons",
+      )}
+      ${select(
+        "Tamanho / apresentação",
+        "size",
+        facets.sizes.map((x) => ({ id: x, name: x })),
+        "Todos os tamanhos",
+      )}
+      ${select(
+        "Disponibilidade",
+        "availability",
+        [
+          { id: "available", name: "Com estoque disponível" },
+          { id: "unavailable", name: "Sem estoque disponível" },
+          { id: "low", name: "Estoque baixo" },
+          { id: "reserved", name: "Com reservas" },
+        ],
+        "Qualquer disponibilidade",
+      )}
+      ${select(
+        "Status",
+        "active",
+        [
+          { id: "active", name: "Ativos" },
+          { id: "inactive", name: "Inativos" },
+        ],
+        "Todos os status",
+      )}
+      <div class="stock-filter-actions"><button class="primary-button" type="submit">Pesquisar / aplicar filtros</button><button class="secondary-button" type="button" id="stock-clear">Limpar filtros</button><button class="secondary-button" type="button" id="movement-btn">Ver movimentações</button></div>
+    </form><p role="status">${Number(d.total)} variação(ões) encontrada(s)</p><div class="panel">${table(["PRODUTO", "COR / TOM · TAMANHO", "SKU / CÓDIGO", "FÍSICO", "RESERVADO", "DISPONÍVEL", "MÍNIMO", "STATUS"], d.items, (x) => `<tr><td><strong>${esc(x.product_name)}</strong></td><td>${esc(x.color)} · ${esc(x.size)}</td><td>${esc(x.sku || "—")}<br><small>${esc(x.barcode || "—")}</small></td><td>${x.physical_stock}</td><td>${x.reserved_stock}</td><td><strong style="color:${x.available <= x.minimum_stock ? "#b45b4f" : "#304d3d"}">${x.available}</strong></td><td>${x.minimum_stock}</td><td>${badge(x.active && x.product_active ? "ATIVO" : "INATIVO")}</td></tr>`)}</div>${pagination(d)}`;
+  const reload = () => stock().catch((error) => toast(error.message, "error"));
+  $("#stock-filters").onsubmit = (event) => {
+    event.preventDefault();
+    filters.stock = Object.fromEntries(
+      [...new FormData(event.target)].map(([key, value]) => [
+        key,
+        value.trim(),
+      ]),
+    );
+    reload();
+  };
+  $("#stock-clear").onclick = () => {
+    filters.stock = {};
+    reload();
   };
   $("#movement-btn").onclick = movements;
   setupPagination(stock);
@@ -554,7 +607,7 @@ async function pos() {
   posCart = [];
   $("#view-actions").innerHTML = "";
   $("#view-content").innerHTML =
-    `<div class="pos-layout"><div class="panel"><div class="panel-head"><div><span class="eyebrow">01 / PRODUTOS</span><h3>Encontre o próximo par</h3></div></div><label class="input-label" for="barcode-input">Código de barras ou SKU</label><div class="scanner-bar"><input id="barcode-input" placeholder="Leia ou digite o código" autocomplete="off"><button class="secondary-button" id="camera-btn">▣ &nbsp; Ler código</button></div><p class="scanner-hint">Passe o leitor ou digite o código e pressione Enter.</p><div class="toolbar"><input id="pos-search" placeholder="Ou procure pelo nome do produto"><button class="secondary-button" id="pos-search-btn">Buscar</button></div><div class="search-results" id="pos-results"></div><button class="secondary-button pos-summary" id="pos-summary" hidden>Ver resumo da venda ↓</button></div><div class="panel pos-cart"><span class="eyebrow">02 / RESUMO</span><h3>Esta venda</h3><div id="pos-lines"></div><div class="pos-total"><span>Total</span><strong id="pos-total">R$ 0,00</strong></div><div class="pos-pay"><label class="field">Desconto geral<input id="pos-discount" type="number" min="0" step="0.01" value="0"></label><label class="field">Pagamento<select id="pos-payment">${paymentOptions()}</select></label><button class="primary-button" id="finish-sale">Finalizar venda ↗</button></div></div></div>`;
+    `<div class="pos-layout"><div class="panel"><div class="panel-head"><div><span class="eyebrow">01 / PRODUTOS</span><h3>Encontre o produto</h3></div></div><label class="input-label" for="barcode-input">Código de barras ou SKU</label><div class="scanner-bar"><input id="barcode-input" placeholder="Leia ou digite o código" autocomplete="off"><button class="secondary-button" id="camera-btn">▣ &nbsp; Ler código</button></div><p class="scanner-hint">Passe o leitor ou digite o código e pressione Enter.</p><div class="toolbar"><input id="pos-search" placeholder="Ou procure pelo nome do produto"><button class="secondary-button" id="pos-search-btn">Buscar</button></div><div class="search-results" id="pos-results"></div><button class="secondary-button pos-summary" id="pos-summary" hidden>Ver resumo da venda ↓</button></div><div class="panel pos-cart"><span class="eyebrow">02 / RESUMO</span><h3>Esta venda</h3><div id="pos-lines"></div><div class="pos-total"><span>Total</span><strong id="pos-total">R$ 0,00</strong></div><div class="pos-pay"><label class="field">Desconto geral<input id="pos-discount" type="number" min="0" step="0.01" value="0"></label><label class="field">Pagamento<select id="pos-payment">${paymentOptions()}</select></label><button class="primary-button" id="finish-sale">Finalizar venda ↗</button></div></div></div>`;
   $("#barcode-input").onkeydown = async (e) => {
     if (e.key !== "Enter") return;
     e.preventDefault();

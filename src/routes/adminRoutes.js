@@ -41,6 +41,7 @@ router.post("/orders/:id/convert", permit("orders.manage"), c.orderConvert);
 router.get("/sales", permit("sales.view"), c.saleList);
 router.post("/sales", permit("sales.create"), c.saleCreate);
 router.post("/sales/:id/cancel", permit("sales.cancel"), c.saleCancel);
+router.get("/stock/filters", permit("stock.view"), c.stockFilters);
 router.get("/stock", permit("stock.view"), c.stockList);
 router.get("/stock/movements", permit("stock.view"), c.stockMovements);
 router.post("/stock/adjust", permit("stock.adjust"), c.stockAdjust);

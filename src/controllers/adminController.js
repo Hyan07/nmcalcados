@@ -125,8 +125,10 @@ export const saleCreate = async (req, res) =>
   );
 export const saleCancel = async (req, res) =>
   ok(res, await sales.cancelSale(id(req), req.user, req.ip));
+export const stockFilters = async (req, res) =>
+  ok(res, await stock.stockFilters());
 export const stockList = async (req, res) =>
-  ok(res, await stock.stockList(req.query));
+  ok(res, await stock.stockList(parse(schemas.stockQuery, req.query)));
 export const stockMovements = async (req, res) =>
   ok(res, await stock.movements(req.query));
 export const stockAdjust = async (req, res) =>
