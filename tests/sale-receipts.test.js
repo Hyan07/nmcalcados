@@ -389,3 +389,263 @@ test("impressão busca somente o cupom salvo, abre a janela e limpa o documento 
   assert.equal(nodes.has("#sale-receipt-print"), false);
   assert.equal(classes.has("printing-sale-receipt"), false);
 });
+
+test("banco anterior: venda, conversão e reimpressão preservam garantia sem a coluna nova", async () => {
+  const rows = new Map(),
+    audits = new Map(),
+    writes = [];
+  let nextId = 90;
+  let columnExists = false;
+  const variant = {
+    id: 1,
+    product_id: 1,
+    product_name: "Batom",
+    color: "Rosa",
+    size: "Único",
+    variant_price: null,
+    product_price: "25.00",
+    physical_stock: 3,
+    reserved_stock: 1,
+    active: 1,
+    product_active: 1,
+  };
+  await withConnection(
+    async (sql, params) => {
+      if (
+        !columnExists &&
+        (sql.includes("s.warranty_text") ||
+          (sql.startsWith("INSERT INTO sales") &&
+            sql.includes("warranty_text")))
+      )
+        throw Object.assign(
+          new Error("Unknown column 'warranty_text' in 'field list'"),
+          { code: "ER_BAD_FIELD_ERROR" },
+        );
+      if (sql.includes("FROM audit_logs")) {
+        const entry =
+          audits.get(params[0]) ||
+          (params[1] != null && audits.get(params[1])?.saleId === params[2]
+            ? audits.get(params[1])
+            : null);
+        return [[{ warranty_text: entry?.warrantyText || null }]];
+      }
+      if (sql.startsWith("SELECT id,status,customer_id"))
+        return [
+          [
+            {
+              id: 8,
+              status: "CONFIRMADO",
+              customer_id: 1,
+              total: "25.00",
+              expires_at: new Date(Date.now() + 60000),
+            },
+          ],
+        ];
+      if (sql.startsWith("SELECT * FROM order_items"))
+        return [
+          [
+            {
+              variant_id: 1,
+              product_name: "Batom",
+              color: "Rosa",
+              size: "Único",
+              quantity: 1,
+              unit_price: "25.00",
+              subtotal: "25.00",
+            },
+          ],
+        ];
+      if (sql.includes("FOR UPDATE")) return [[{ ...variant }]];
+      if (sql.includes("FROM sales s")) return [[{ ...rows.get(params[0]) }]];
+      if (sql.includes("FROM sale_items")) return [saleReceiptFixture().items];
+      if (sql.includes("FROM payments"))
+        return [
+          [
+            {
+              method: "PIX",
+              amount: "25.00",
+              reconciliation_status: "RECEBIDO",
+            },
+          ],
+        ];
+      writes.push({ sql, params });
+      if (sql.startsWith("INSERT INTO sales")) {
+        const id = nextId++;
+        rows.set(id, {
+          id,
+          order_id: sql.includes("(order_id,") ? params[0] : null,
+          user_id: 1,
+          total: "25.00",
+          warranty_text: null,
+        });
+        return [{ insertId: id }];
+      }
+      if (sql.startsWith("INSERT INTO audit_logs"))
+        audits.set(params[3], JSON.parse(params[5]));
+      return [{ insertId: 1 }];
+    },
+    async () => {
+      const sale = await createSale(
+        schemas.sale.parse({
+          payment: "PIX",
+          items: [{ variantId: 1, quantity: 1 }],
+          warrantyText: "Texto original do balcão",
+        }),
+        { id: 1 },
+        null,
+      );
+      const converted = await convertOrder(
+        8,
+        "PIX",
+        { id: 1 },
+        null,
+        "Texto original da reserva",
+      );
+      assert.equal(sale.total, "25.00");
+      assert.equal(
+        (await saleReceipt(sale.id, { id: 1, permissions: ["sales.create"] }))
+          .warranty_text,
+        "Texto original do balcão",
+      );
+      assert.equal(
+        (
+          await saleReceipt(converted.id, {
+            id: 1,
+            permissions: ["sales.view"],
+          })
+        ).warranty_text,
+        "Texto original da reserva",
+      );
+      columnExists = true;
+      assert.equal(
+        (await saleReceipt(sale.id, { id: 1, permissions: ["sales.view"] }))
+          .warranty_text,
+        "Texto original do balcão",
+        "A garantia anterior à migração continua disponível após adicionar a coluna",
+      );
+    },
+  );
+  assert.equal(
+    writes.filter((x) => x.sql.startsWith("INSERT INTO sales")).length,
+    2,
+  );
+  assert.equal(
+    writes.filter((x) => x.sql.startsWith("UPDATE product_variants")).length,
+    2,
+  );
+  assert.equal(
+    writes.filter((x) => x.sql.startsWith("INSERT INTO payments")).length,
+    2,
+  );
+});
+
+test("compatibilidade não repete inserts diante de outros erros de banco", async () => {
+  for (const error of [
+    Object.assign(new Error("Unknown column 'subtotal' in 'field list'"), {
+      code: "ER_BAD_FIELD_ERROR",
+    }),
+    Object.assign(new Error("Duplicate entry"), { code: "ER_DUP_ENTRY" }),
+    Object.assign(new Error("Connection lost"), {
+      code: "PROTOCOL_CONNECTION_LOST",
+    }),
+  ]) {
+    let attempts = 0;
+    await withConnection(
+      async (sql) => {
+        if (sql.includes("FOR UPDATE"))
+          return [
+            [
+              {
+                id: 1,
+                active: 1,
+                product_active: 1,
+                product_price: "25.00",
+                physical_stock: 1,
+                reserved_stock: 0,
+              },
+            ],
+          ];
+        if (sql.startsWith("INSERT INTO sales")) {
+          attempts++;
+          throw error;
+        }
+        throw new Error("Não deveria gravar outros registros depois da falha");
+      },
+      async () => {
+        await assert.rejects(
+          createSale(
+            schemas.sale.parse({
+              payment: "PIX",
+              items: [{ variantId: 1, quantity: 1 }],
+            }),
+            { id: 1 },
+            null,
+          ),
+          { code: error.code },
+        );
+      },
+    );
+    assert.equal(attempts, 1);
+  }
+});
+
+test("falha ao preservar garantia na auditoria reverte a transação no banco anterior", async () => {
+  const original = pool.getConnection;
+  let commits = 0,
+    rollbacks = 0;
+  pool.getConnection = async () => ({
+    async beginTransaction() {},
+    async commit() {
+      commits++;
+    },
+    async rollback() {
+      rollbacks++;
+    },
+    release() {},
+    async execute(sql) {
+      if (sql.includes("FOR UPDATE"))
+        return [
+          [
+            {
+              id: 1,
+              product_name: "Batom",
+              color: "Rosa",
+              size: "Único",
+              active: 1,
+              product_active: 1,
+              product_price: "25.00",
+              physical_stock: 1,
+              reserved_stock: 0,
+            },
+          ],
+        ];
+      if (sql.startsWith("INSERT INTO sales") && sql.includes("warranty_text"))
+        throw Object.assign(
+          new Error("Unknown column 'warranty_text' in 'field list'"),
+          { code: "ER_BAD_FIELD_ERROR" },
+        );
+      if (sql.startsWith("INSERT INTO audit_logs"))
+        throw Object.assign(new Error("Audit unavailable"), {
+          code: "ER_DISK_FULL",
+        });
+      return [{ insertId: 1 }];
+    },
+  });
+  try {
+    await assert.rejects(
+      createSale(
+        schemas.sale.parse({
+          payment: "PIX",
+          items: [{ variantId: 1, quantity: 1 }],
+        }),
+        { id: 1 },
+        null,
+      ),
+      { code: "ER_DISK_FULL" },
+    );
+    assert.equal(commits, 0);
+    assert.equal(rollbacks, 1);
+  } finally {
+    pool.getConnection = original;
+  }
+});

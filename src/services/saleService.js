@@ -10,6 +10,51 @@ import {
 import { canTransition } from "./orderService.js";
 import { requireAvailable } from "./stockPolicy.js";
 
+function missingWarrantyColumn(error) {
+  return (
+    error.code === "ER_BAD_FIELD_ERROR" &&
+    /Unknown column ['`](?:s\.)?warranty_text['`]/i.test(
+      error.sqlMessage || error.message || "",
+    )
+  );
+}
+
+// The receipt update can be deployed before migration 003. Keep the sale
+// atomic on either schema; the same transaction also records its warranty
+// in audit_logs so that receipts retain the original text in both cases.
+async function insertSale(conn, columns, values, warrantyText) {
+  const insert = (names, params) =>
+    conn.execute(
+      `INSERT INTO sales (${names.join(",")}) VALUES (${names.map(() => "?").join(",")})`,
+      params,
+    );
+  try {
+    return await insert(
+      [...columns, "warranty_text"],
+      [...values, warrantyText],
+    );
+  } catch (error) {
+    if (!missingWarrantyColumn(error)) throw error;
+    return insert(columns, values);
+  }
+}
+
+async function receiptSaleRow(conn, id) {
+  const select = (warranty) =>
+    conn.execute(
+      `SELECT s.id,s.order_id,s.user_id,s.created_at,s.cancelled_at,s.status,s.subtotal,s.discount,s.surcharge,s.total,s.is_historical,${warranty} warranty_text,
+      COALESCE(c.name,'Balcão') customer_name,u.name user_name
+      FROM sales s LEFT JOIN customers c ON c.id=s.customer_id LEFT JOIN users u ON u.id=s.user_id WHERE s.id=?`,
+      [id],
+    );
+  try {
+    return await select("s.warranty_text");
+  } catch (error) {
+    if (!missingWarrantyColumn(error)) throw error;
+    return select("NULL");
+  }
+}
+
 export function receiptSettings() {
   return { warrantyText: env.receiptWarranty };
 }
@@ -43,16 +88,18 @@ export async function createSale(data, user, ip) {
     if (globalDiscount > subtotal - itemDiscount)
       throw new AppError("Desconto maior que o valor da venda.");
     const total = subtotal - itemDiscount - globalDiscount;
-    const [sale] = await conn.execute(
-      "INSERT INTO sales (customer_id,user_id,subtotal,discount,total,warranty_text) VALUES (?,?,?,?,?,?)",
+    const warrantyText = data.warrantyText || env.receiptWarranty;
+    const [sale] = await insertSale(
+      conn,
+      ["customer_id", "user_id", "subtotal", "discount", "total"],
       [
         data.customerId || null,
         user.id,
         decimal(subtotal),
         decimal(itemDiscount + globalDiscount),
         decimal(total),
-        data.warrantyText || env.receiptWarranty,
       ],
+      warrantyText,
     );
     for (const entry of entries) {
       const v = entry.variant;
@@ -88,7 +135,7 @@ export async function createSale(data, user, ip) {
       action: "VENDA",
       entity: "sales",
       entityId: sale.insertId,
-      after: { total: decimal(total) },
+      after: { total: decimal(total), warrantyText },
       ip,
     });
     return { id: sale.insertId, total: decimal(total), status: "CONCLUIDA" };
@@ -128,16 +175,12 @@ export async function convertOrder(id, payment, user, ip, warrantyText = null) {
         );
       locked.push({ item, variant });
     }
-    const [sale] = await conn.execute(
-      "INSERT INTO sales (order_id,customer_id,user_id,subtotal,total,warranty_text) VALUES (?,?,?,?,?,?)",
-      [
-        id,
-        order.customer_id,
-        user.id,
-        order.total,
-        order.total,
-        warrantyText || env.receiptWarranty,
-      ],
+    const warranty = warrantyText || env.receiptWarranty;
+    const [sale] = await insertSale(
+      conn,
+      ["order_id", "customer_id", "user_id", "subtotal", "total"],
+      [id, order.customer_id, user.id, order.total, order.total],
+      warranty,
     );
     for (const { item, variant } of locked) {
       await conn.execute(
@@ -182,7 +225,7 @@ export async function convertOrder(id, payment, user, ip, warrantyText = null) {
       entity: "orders",
       entityId: id,
       before: { status: order.status },
-      after: { saleId: sale.insertId },
+      after: { saleId: sale.insertId, warrantyText: warranty },
       ip,
     });
     return {
@@ -253,12 +296,7 @@ export async function listSales({ page = 1, limit = 20 } = {}) {
 
 export async function saleReceipt(id, user) {
   return transaction(async (conn) => {
-    const [rows] = await conn.execute(
-      `SELECT s.id,s.order_id,s.user_id,s.created_at,s.cancelled_at,s.status,s.subtotal,s.discount,s.surcharge,s.total,s.is_historical,s.warranty_text,
-      COALESCE(c.name,'Balcão') customer_name,u.name user_name
-      FROM sales s LEFT JOIN customers c ON c.id=s.customer_id LEFT JOIN users u ON u.id=s.user_id WHERE s.id=?`,
-      [id],
-    );
+    const [rows] = await receiptSaleRow(conn, id);
     if (!rows.length) throw notFound("Venda");
     const sale = rows[0];
     if (
@@ -270,6 +308,17 @@ export async function saleReceipt(id, user) {
         403,
         "FORBIDDEN",
       );
+    if (sale.warranty_text == null) {
+      const [audits] = await conn.execute(
+        `SELECT JSON_UNQUOTE(JSON_EXTRACT(after_json,'$.warrantyText')) warranty_text
+        FROM audit_logs WHERE (
+          (entity='sales' AND entity_id=? AND action='VENDA') OR
+          (entity='orders' AND entity_id=? AND action='CONVERSAO_PEDIDO' AND JSON_EXTRACT(after_json,'$.saleId')=?)
+        ) AND JSON_EXTRACT(after_json,'$.warrantyText') IS NOT NULL ORDER BY id DESC LIMIT 1`,
+        [id, sale.order_id || null, id],
+      );
+      sale.warranty_text = audits[0]?.warranty_text || null;
+    }
     const [[items], [payments]] = await Promise.all([
       conn.execute(
         "SELECT product_name,color,size,quantity,unit_price,discount,surcharge,subtotal,legacy_cancelled FROM sale_items WHERE sale_id=? ORDER BY id",
