@@ -649,3 +649,62 @@ test("falha ao preservar garantia na auditoria reverte a transação no banco an
     pool.getConnection = original;
   }
 });
+
+test("cupom ajusta altura ao conteúdo e recalcula para vendas mais curtas", async () => {
+  const source = await readFile(
+    new URL("../public/js/admin.js", import.meta.url),
+    "utf8",
+  );
+  let pixels = 384,
+    size;
+  const classes = new Set();
+  const root = {
+    classList: {
+      add: (name) => classes.add(name),
+      remove: (name) => classes.delete(name),
+    },
+    getBoundingClientRect() {
+      assert.ok(classes.has("sale-receipt-measure"));
+      return { height: pixels };
+    },
+  };
+  const context = vm.createContext({
+    root,
+    document: {
+      styleSheets: [
+        {
+          get cssRules() {
+            throw new Error("Cross-origin stylesheet");
+          },
+        },
+        {
+          cssRules: [
+            {
+              type: 6,
+              selectorText: "sale-coupon",
+              style: {
+                setProperty(name, value) {
+                  assert.equal(name, "size");
+                  size = value;
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+  });
+  vm.runInContext(
+    source.slice(
+      source.indexOf("function fitSaleReceiptPage("),
+      source.indexOf("async function printSaleReceipt("),
+    ),
+    context,
+  );
+  vm.runInContext("fitSaleReceiptPage(root)", context);
+  assert.equal(size, "80mm 108mm");
+  assert.equal(classes.size, 0);
+  pixels = 192;
+  vm.runInContext("fitSaleReceiptPage(root)", context);
+  assert.equal(size, "80mm 57mm");
+});

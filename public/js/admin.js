@@ -875,12 +875,42 @@ function renderSaleReceipt(sale) {
   return `<article class="sale-receipt"><header><h1>N&M CALÇADOS</h1><h2>CUPOM DE VENDA #${Number(sale.id)}</h2><p>DOCUMENTO NÃO FISCAL</p></header>
     ${sale.status !== "CONCLUIDA" ? '<p class="sale-receipt-alert">VENDA CANCELADA</p>' : ""}
     <p>Venda: ${esc(reportDate(sale.created_at))}<br>Cliente: ${esc(sale.customer_name)}<br>Atendente: ${esc(sale.user_name || "—")}${sale.order_id ? `<br>Pedido: #${Number(sale.order_id)}` : ""}</p>
-    <section><h3>PRODUTOS</h3>${sale.items.map((item) => `<div class="sale-receipt-item"><strong>${esc(item.product_name)}</strong><p>${esc(item.color)} · ${esc(item.size)}${item.legacy_cancelled ? " · ITEM CANCELADO" : ""}</p><div><span>${Number(item.quantity)} × ${fmt(item.unit_price)}</span><strong>${fmt(item.subtotal)}</strong></div>${Number(item.discount) ? `<p>Desconto do item: ${fmt(item.discount)}</p>` : ""}${Number(item.surcharge) ? `<p>Acréscimo do item: ${fmt(item.surcharge)}</p>` : ""}</div>`).join("")}</section>
-    <section class="sale-receipt-totals"><div><span>Subtotal</span><strong>${fmt(sale.subtotal)}</strong></div><div><span>Descontos totais</span><strong>${fmt(sale.discount)}</strong></div>${Number(sale.surcharge) ? `<div><span>Acréscimos</span><strong>${fmt(sale.surcharge)}</strong></div>` : ""}<div class="sale-receipt-total"><span>TOTAL</span><strong>${fmt(sale.total)}</strong></div></section>
+    <section><h3>PRODUTOS</h3>${sale.items.map((item) => `<div class="sale-receipt-item"><strong>${esc(item.product_name)}</strong><span class="sale-receipt-variant"> · ${esc(item.color)} · ${esc(item.size)}${item.legacy_cancelled ? " · ITEM CANCELADO" : ""}</span><div><span>${Number(item.quantity)} × ${fmt(item.unit_price)}</span><strong>${fmt(item.subtotal)}</strong></div>${Number(item.discount) ? `<p>Desconto: ${fmt(item.discount)}</p>` : ""}${Number(item.surcharge) ? `<p>Acréscimo: ${fmt(item.surcharge)}</p>` : ""}</div>`).join("")}</section>
+    <section class="sale-receipt-totals">${Number(sale.discount) || Number(sale.surcharge) ? `<div><span>Subtotal</span><strong>${fmt(sale.subtotal)}</strong></div>` : ""}${Number(sale.discount) ? `<div><span>Descontos totais</span><strong>${fmt(sale.discount)}</strong></div>` : ""}${Number(sale.surcharge) ? `<div><span>Acréscimos</span><strong>${fmt(sale.surcharge)}</strong></div>` : ""}<div class="sale-receipt-total"><span>TOTAL</span><strong>${fmt(sale.total)}</strong></div></section>
     <section><h3>PAGAMENTO</h3>${sale.payments.length ? sale.payments.map((payment) => `<div class="sale-receipt-payment"><span>${esc(payName(payment.method))}${payment.reconciliation_status === "LEGADO_NAO_CONCILIADO" ? " (histórico não conciliado)" : ""}</span><strong>${fmt(payment.amount)}</strong></div>`).join("") : "<p>Pagamento não informado.</p>"}</section>
     <section><h3>GARANTIA E ATENDIMENTO</h3><p class="sale-receipt-warranty">${esc(sale.warranty_text || "O texto de garantia não foi registrado nesta venda. Consulte a loja sobre as condições e os prazos aplicáveis ao produto.")}</p></section>
-    <footer><p>Guarde este comprovante.<br>Documento não fiscal · Não substitui nota fiscal.</p><p>Emissão: ${esc(reportDate(sale.issuedAt))}<br>Horário de Brasília</p></footer>
+    <footer><p>Guarde este comprovante. Não substitui nota fiscal.</p><p>Emissão: ${esc(reportDate(sale.issuedAt))} (Brasília)</p></footer>
   </article>`;
+}
+function fitSaleReceiptPage(root) {
+  if (!root.getBoundingClientRect || !root.classList || !document.styleSheets)
+    return;
+  let height;
+  root.classList.add("sale-receipt-measure");
+  try {
+    height = root.getBoundingClientRect().height;
+  } finally {
+    root.classList.remove("sale-receipt-measure");
+  }
+  if (!Number.isFinite(height) || height <= 0) return;
+  // CSS pixels use 96 dpi. Include 2 mm top/bottom margins and a small
+  // rounding allowance, instead of feeding a full 297 mm for every sale.
+  const heightMm = Math.min(
+    3000,
+    Math.max(40, Math.ceil((height * 25.4) / 96) + 6),
+  );
+  for (const sheet of document.styleSheets) {
+    try {
+      for (const rule of sheet.cssRules) {
+        if (rule.type === 6 && rule.selectorText === "sale-coupon") {
+          rule.style.setProperty("size", `80mm ${heightMm}mm`);
+          return;
+        }
+      }
+    } catch {
+      /* Cross-origin stylesheets may not expose their rules. */
+    }
+  }
 }
 async function printSaleReceipt(id) {
   const receipt = await api(`/api/admin/sales/${Number(id)}/receipt`);
@@ -891,6 +921,7 @@ async function printSaleReceipt(id) {
     document.body.appendChild(root);
   }
   root.innerHTML = renderSaleReceipt(receipt);
+  fitSaleReceiptPage(root);
   document.body.classList.remove(
     "printing-report",
     "report-receipt",

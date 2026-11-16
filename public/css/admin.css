@@ -1912,11 +1912,11 @@ input[type="file"]::file-selector-button {
 }
 @page report-a4 {
   size: A4;
-  margin: 12mm;
+  margin: 8mm;
 }
 @page report-coupon {
   size: 80mm 297mm;
-  margin: 4mm;
+  margin: 2mm 4mm;
 }
 @media print {
   body.printing-report {
@@ -1953,7 +1953,53 @@ input[type="file"]::file-selector-button {
     margin: 0;
     padding: 0;
     border: 0;
+    font-size: 8.5pt;
+    line-height: 1.2;
+  }
+  body.printing-report .report-heading {
+    padding-bottom: 6px;
+  }
+  body.printing-report .report-heading > strong {
+    font-size: 15pt;
+  }
+  body.printing-report .report-heading h2 {
+    font-size: 11pt;
+    margin: 3px 0;
+    line-height: 1.2;
+  }
+  body.printing-report .report-heading p {
+    font-size: 8pt;
+  }
+  body.printing-report .report-meta,
+  body.printing-report .report-totals {
+    margin: 6px 0;
+  }
+  body.printing-report .report-meta > div,
+  body.printing-report .report-totals > div {
+    padding: 2px 0;
+    gap: 8px;
+  }
+  body.printing-report .report-grand-total {
+    font-size: 10pt;
+  }
+  body.printing-report .report-section {
+    padding-top: 6px;
+    margin-top: 8px;
+  }
+  body.printing-report .report-section h3 {
     font-size: 9pt;
+    line-height: 1.2;
+    margin-bottom: 4px;
+  }
+  body.printing-report .report-note,
+  body.printing-report .report-sale p {
+    font-size: 8pt;
+    margin: 4px 0;
+  }
+  body.printing-report .report-footer {
+    font-size: 7.5pt;
+    margin-top: 8px;
+    padding-top: 6px;
   }
   body.printing-report .report-table-wrap {
     overflow: visible;
@@ -1968,7 +2014,7 @@ input[type="file"]::file-selector-button {
   }
   body.printing-report .report-table th,
   body.printing-report .report-table td {
-    padding: 5px 3px;
+    padding: 2px 3px;
   }
   body.printing-report .report-table thead {
     display: table-header-group;
@@ -1989,7 +2035,8 @@ input[type="file"]::file-selector-button {
   body.printing-report .report-sale {
     border: 0;
     border-top: 1px solid #999;
-    padding: 8px 0;
+    padding: 4px 0;
+    margin: 5px 0;
     break-inside: avoid;
   }
   body.report-summary-only .report-detail {
@@ -1998,22 +2045,27 @@ input[type="file"]::file-selector-button {
   body.report-receipt .report-document {
     page: report-coupon;
     width: 72mm;
-    font-size: 9pt;
+    font-size: 8.5pt;
   }
   body.report-receipt .report-heading > strong {
-    font-size: 15pt;
+    font-size: 12pt;
   }
   body.report-receipt .report-heading h2 {
-    font-size: 11pt;
+    font-size: 9pt;
   }
   body.report-receipt .report-grand-total {
-    font-size: 11pt;
+    font-size: 10pt;
   }
   body.report-receipt .report-meta > div {
-    display: block;
+    display: flex;
+  }
+  body.report-receipt .report-meta dt {
+    flex: 0 0 28%;
   }
   body.report-receipt .report-meta dd {
-    text-align: left;
+    min-width: 0;
+    max-width: 72%;
+    text-align: right;
   }
   body.report-receipt .report-table,
   body.report-receipt .report-table tbody,
@@ -2027,8 +2079,8 @@ input[type="file"]::file-selector-button {
   }
   body.report-receipt .report-table td {
     border: 0;
-    padding: 2px 0;
-    font-size: 9pt;
+    padding: 1px 0;
+    font-size: 8.5pt;
   }
   body.report-receipt .report-table td::before {
     content: attr(data-label) ": ";
@@ -2039,7 +2091,7 @@ input[type="file"]::file-selector-button {
   }
   body.report-receipt .report-table tr {
     border-bottom: 1px dashed #888;
-    padding: 6px 0;
+    padding: 3px 0;
   }
   body.report-receipt .report-note,
   body.report-receipt .report-sale p,
@@ -2050,15 +2102,15 @@ input[type="file"]::file-selector-button {
 
 @media print {
   body.report-summary-only .report-section {
-    padding-top: 10px;
-    margin-top: 12px;
+    padding-top: 6px;
+    margin-top: 8px;
   }
   body.report-summary-only .report-meta,
   body.report-summary-only .report-totals {
-    margin: 12px 0;
+    margin: 6px 0;
   }
   body.report-summary-only .report-heading {
-    padding-bottom: 12px;
+    padding-bottom: 6px;
   }
 }
 
@@ -2079,10 +2131,11 @@ input[type="file"]::file-selector-button {
   display: none;
 }
 .sale-receipt {
+  display: flow-root;
   color: black;
   background: white;
   font:
-    9pt/1.45 ui-monospace,
+    8.5pt/1.15 ui-monospace,
     SFMono-Regular,
     Consolas,
     monospace;
@@ -2094,33 +2147,33 @@ input[type="file"]::file-selector-button {
 .sale-receipt h1 {
   margin: 0;
   font:
-    bold 15pt/1.4 ui-monospace,
+    bold 12pt/1.1 ui-monospace,
     monospace;
 }
 .sale-receipt h2 {
-  margin: 8px 0;
+  margin: 2px 0;
   font:
-    bold 10pt/1.4 ui-monospace,
+    bold 9pt/1.15 ui-monospace,
     monospace;
 }
 .sale-receipt h3 {
   font:
-    bold 10pt/1.4 ui-monospace,
+    bold 8.5pt/1.15 ui-monospace,
     monospace;
-  margin: 0 0 10px;
+  margin: 0 0 3px;
 }
 .sale-receipt p {
-  margin: 6px 0;
+  margin: 2px 0;
   overflow-wrap: anywhere;
 }
 .sale-receipt header,
 .sale-receipt section {
   border-bottom: 1px dashed black;
-  padding: 10px 0;
+  padding: 3px 0;
 }
 .sale-receipt-item {
   border-bottom: 1px dotted #999;
-  padding: 8px 0;
+  padding: 3px 0;
   break-inside: avoid;
 }
 .sale-receipt-item:last-child {
@@ -2131,8 +2184,8 @@ input[type="file"]::file-selector-button {
 .sale-receipt-payment {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  padding: 3px 0;
+  gap: 6px;
+  padding: 1px 0;
 }
 .sale-receipt-totals,
 .sale-receipt footer {
@@ -2140,7 +2193,7 @@ input[type="file"]::file-selector-button {
 }
 .sale-receipt-total {
   font-weight: bold;
-  font-size: 12pt;
+  font-size: 10pt;
 }
 .sale-receipt-warranty {
   white-space: pre-wrap;
@@ -2153,12 +2206,12 @@ input[type="file"]::file-selector-button {
   padding: 8px;
 }
 .sale-receipt footer {
-  margin-top: 12px;
-  font-size: 8pt;
+  margin-top: 4px;
+  font-size: 7.5pt;
 }
 @page sale-coupon {
   size: 80mm 297mm;
-  margin: 4mm;
+  margin: 2mm 4mm;
 }
 @media print {
   body.printing-sale-receipt {
@@ -2180,4 +2233,16 @@ input[type="file"]::file-selector-button {
   body.printing-sale-receipt .sale-receipt h3 {
     break-after: avoid;
   }
+}
+
+#sale-receipt-print.sale-receipt-measure {
+  display: block;
+  position: absolute;
+  left: -10000px;
+  top: 0;
+  width: 72mm;
+  visibility: hidden;
+}
+.sale-receipt-variant {
+  font-size: 8pt;
 }
