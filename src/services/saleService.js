@@ -1,3 +1,4 @@
+import { env } from "../config/env.js";
 import { pool, transaction } from "../database/pool.js";
 import { AppError, notFound } from "../utils/errors.js";
 import { cents, decimal } from "../utils/pricing.js";
@@ -8,6 +9,10 @@ import {
 } from "../repositories/stockRepository.js";
 import { canTransition } from "./orderService.js";
 import { requireAvailable } from "./stockPolicy.js";
+
+export function receiptSettings() {
+  return { warrantyText: env.receiptWarranty };
+}
 
 export async function createSale(data, user, ip) {
   const grouped = new Map();
@@ -39,13 +44,14 @@ export async function createSale(data, user, ip) {
       throw new AppError("Desconto maior que o valor da venda.");
     const total = subtotal - itemDiscount - globalDiscount;
     const [sale] = await conn.execute(
-      "INSERT INTO sales (customer_id,user_id,subtotal,discount,total) VALUES (?,?,?,?,?)",
+      "INSERT INTO sales (customer_id,user_id,subtotal,discount,total,warranty_text) VALUES (?,?,?,?,?,?)",
       [
         data.customerId || null,
         user.id,
         decimal(subtotal),
         decimal(itemDiscount + globalDiscount),
         decimal(total),
+        data.warrantyText || env.receiptWarranty,
       ],
     );
     for (const entry of entries) {
@@ -88,7 +94,7 @@ export async function createSale(data, user, ip) {
     return { id: sale.insertId, total: decimal(total), status: "CONCLUIDA" };
   });
 }
-export async function convertOrder(id, payment, user, ip) {
+export async function convertOrder(id, payment, user, ip, warrantyText = null) {
   return transaction(async (conn) => {
     const [rows] = await conn.execute(
       "SELECT id,status,customer_id,total,expires_at FROM orders WHERE id=? FOR UPDATE",
@@ -123,8 +129,15 @@ export async function convertOrder(id, payment, user, ip) {
       locked.push({ item, variant });
     }
     const [sale] = await conn.execute(
-      "INSERT INTO sales (order_id,customer_id,user_id,subtotal,total) VALUES (?,?,?,?,?)",
-      [id, order.customer_id, user.id, order.total, order.total],
+      "INSERT INTO sales (order_id,customer_id,user_id,subtotal,total,warranty_text) VALUES (?,?,?,?,?,?)",
+      [
+        id,
+        order.customer_id,
+        user.id,
+        order.total,
+        order.total,
+        warrantyText || env.receiptWarranty,
+      ],
     );
     for (const { item, variant } of locked) {
       await conn.execute(
@@ -236,4 +249,38 @@ export async function listSales({ page = 1, limit = 20 } = {}) {
     [l, (p - 1) * l],
   );
   return { items, total: count[0].total, page: p, limit: l };
+}
+
+export async function saleReceipt(id, user) {
+  return transaction(async (conn) => {
+    const [rows] = await conn.execute(
+      `SELECT s.id,s.order_id,s.user_id,s.created_at,s.cancelled_at,s.status,s.subtotal,s.discount,s.surcharge,s.total,s.is_historical,s.warranty_text,
+      COALESCE(c.name,'Balcão') customer_name,u.name user_name
+      FROM sales s LEFT JOIN customers c ON c.id=s.customer_id LEFT JOIN users u ON u.id=s.user_id WHERE s.id=?`,
+      [id],
+    );
+    if (!rows.length) throw notFound("Venda");
+    const sale = rows[0];
+    if (
+      !user.permissions.includes("sales.view") &&
+      Number(sale.user_id) !== Number(user.id)
+    )
+      throw new AppError(
+        "Sem permissão para consultar esta venda.",
+        403,
+        "FORBIDDEN",
+      );
+    const [[items], [payments]] = await Promise.all([
+      conn.execute(
+        "SELECT product_name,color,size,quantity,unit_price,discount,surcharge,subtotal,legacy_cancelled FROM sale_items WHERE sale_id=? ORDER BY id",
+        [id],
+      ),
+      conn.execute(
+        "SELECT method,amount,reconciliation_status FROM payments WHERE sale_id=? ORDER BY id",
+        [id],
+      ),
+    ]);
+    const { user_id, ...receipt } = sale;
+    return { ...receipt, items, payments, issuedAt: new Date().toISOString() };
+  });
 }

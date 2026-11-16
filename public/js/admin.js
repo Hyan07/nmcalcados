@@ -29,7 +29,8 @@ let currentUser = null,
   productEditorId = null,
   filters = {},
   posCart = [],
-  posProduct = null;
+  posProduct = null,
+  saleSubmitting = false;
 function csrf() {
   return decodeURIComponent(
     document.cookie
@@ -296,22 +297,39 @@ async function openOrder(id) {
         }
       }),
   );
-  $("[data-convert]", actions)?.addEventListener("click", () => {
+  $("[data-convert]", actions)?.addEventListener("click", async () => {
+    let warrantyText;
+    try {
+      warrantyText = (await api("/api/admin/sales/receipt-settings"))
+        .warrantyText;
+    } catch (error) {
+      toast(error.message, "error");
+      return;
+    }
     dialog(
-      `<span class="eyebrow">PEDIDO #${id}</span><h2>Converter em venda</h2><p>O estoque será baixado e a reserva concluída. Escolha a forma de pagamento recebida.</p><form id="convert-form"><label class="field">Pagamento<select name="payment">${paymentOptions()}</select></label><div class="form-actions"><button class="primary-button" type="submit">Confirmar venda ↗</button></div></form>`,
+      `<span class="eyebrow">PEDIDO #${id}</span><h2>Converter em venda</h2><p>O estoque será baixado e a reserva concluída. Escolha a forma de pagamento recebida.</p><form id="convert-form"><label class="field">Pagamento<select name="payment">${paymentOptions()}</select></label>${receiptWarrantyField(warrantyText)}<div class="form-actions"><button class="primary-button" type="submit">Confirmar venda ↗</button></div></form>`,
     );
     $("#convert-form").onsubmit = async (e) => {
       e.preventDefault();
+      if (saleSubmitting) return;
       if (!confirmAction("Confirmar a venda deste pedido?")) return;
+      saleSubmitting = true;
+      const button = e.target.querySelector('[type="submit"]');
+      button.disabled = true;
       try {
-        await api(`/api/admin/orders/${id}/convert`, "POST", {
+        const result = await api(`/api/admin/orders/${id}/convert`, "POST", {
           payment: new FormData(e.target).get("payment"),
+          warrantyText: $("#sale-warranty").value,
         });
         closeDialog();
         toast("Pedido convertido em venda.");
-        orders();
+        orders().catch((error) => toast(error.message, "error"));
+        promptSaleReceipt(result);
       } catch (error) {
         toast(error.message, "error");
+      } finally {
+        saleSubmitting = false;
+        button.disabled = false;
       }
     };
   });
@@ -605,11 +623,12 @@ const paymentOptions = () =>
     )
     .join("");
 async function pos() {
+  const receiptSettings = await api("/api/admin/sales/receipt-settings");
   posCart = [];
   posProduct = null;
   $("#view-actions").innerHTML = "";
   $("#view-content").innerHTML =
-    `<div class="pos-layout"><div class="panel"><div class="panel-head"><div><span class="eyebrow">01 / PRODUTOS</span><h3>Encontre o produto</h3></div></div><label class="input-label" for="barcode-input">Código de barras ou SKU</label><div class="scanner-bar"><input id="barcode-input" placeholder="Leia ou digite o código" autocomplete="off"><button class="secondary-button" id="camera-btn">▣ &nbsp; Ler código</button></div><p class="scanner-hint">Passe o leitor ou digite o código e pressione Enter.</p><div class="toolbar"><input id="pos-search" placeholder="Ou procure pelo nome do produto"><button class="secondary-button" id="pos-search-btn">Buscar</button></div><div class="search-results" id="pos-results"></div><button class="secondary-button pos-summary" id="pos-summary" hidden>Ver resumo da venda ↓</button></div><div class="panel pos-cart"><span class="eyebrow">02 / RESUMO</span><h3>Esta venda</h3><div id="pos-lines"></div><div class="pos-total"><span>Total</span><strong id="pos-total">R$ 0,00</strong></div><div class="pos-pay"><label class="field">Desconto geral<input id="pos-discount" type="number" min="0" step="0.01" value="0"></label><label class="field">Pagamento<select id="pos-payment">${paymentOptions()}</select></label><button class="primary-button" id="finish-sale">Finalizar venda ↗</button></div></div></div>`;
+    `<div class="pos-layout"><div class="panel"><div class="panel-head"><div><span class="eyebrow">01 / PRODUTOS</span><h3>Encontre o produto</h3></div></div><label class="input-label" for="barcode-input">Código de barras ou SKU</label><div class="scanner-bar"><input id="barcode-input" placeholder="Leia ou digite o código" autocomplete="off"><button class="secondary-button" id="camera-btn">▣ &nbsp; Ler código</button></div><p class="scanner-hint">Passe o leitor ou digite o código e pressione Enter.</p><div class="toolbar"><input id="pos-search" placeholder="Ou procure pelo nome do produto"><button class="secondary-button" id="pos-search-btn">Buscar</button></div><div class="search-results" id="pos-results"></div><button class="secondary-button pos-summary" id="pos-summary" hidden>Ver resumo da venda ↓</button></div><div class="panel pos-cart"><span class="eyebrow">02 / RESUMO</span><h3>Esta venda</h3><div id="pos-lines"></div><div class="pos-total"><span>Total</span><strong id="pos-total">R$ 0,00</strong></div><div class="pos-pay"><label class="field">Desconto geral<input id="pos-discount" type="number" min="0" step="0.01" value="0"></label><label class="field">Pagamento<select id="pos-payment">${paymentOptions()}</select></label>${receiptWarrantyField(receiptSettings.warrantyText)}<button class="primary-button" id="finish-sale">Finalizar venda ↗</button></div></div></div>`;
   $("#barcode-input").onkeydown = async (e) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
@@ -788,11 +807,19 @@ function renderPosCart() {
       }),
   );
 }
+function receiptWarrantyField(value = "") {
+  return `<details class="receipt-warranty-editor"><summary>Garantia no cupom</summary><label class="field">Texto que será gravado nesta venda<textarea id="sale-warranty" maxlength="2000" rows="4">${esc(value)}</textarea></label></details>`;
+}
 async function finishSale() {
+  if (saleSubmitting) return;
   if (!posCart.length) return toast("Adicione um produto à venda.", "error");
   if (!confirmAction("Confirmar esta venda e baixar o estoque?")) return;
+  saleSubmitting = true;
+  const button = $("#finish-sale");
+  button.disabled = true;
+  let result;
   try {
-    const result = await api("/api/admin/sales", "POST", {
+    result = await api("/api/admin/sales", "POST", {
       items: posCart.map((x) => ({
         variantId: x.variantId,
         quantity: x.quantity,
@@ -800,13 +827,89 @@ async function finishSale() {
       })),
       discount: Number($("#pos-discount").value) || 0,
       payment: $("#pos-payment").value,
+      warrantyText: $("#sale-warranty").value,
     });
-    toast(`Venda #${result.id} concluída.`);
-    setView("pos");
+    posCart = [];
+    renderPosCart();
   } catch (error) {
     toast(error.message, "error");
+  } finally {
+    saleSubmitting = false;
+    button.disabled = false;
+  }
+  if (result) {
+    toast(`Venda #${result.id} concluída.`);
+    setView("pos");
+    promptSaleReceipt(result);
   }
 }
+function promptSaleReceipt(sale) {
+  dialog(
+    `<span class="eyebrow">VENDA CONCLUÍDA</span><h2>Imprimir o cupom?</h2><p>A venda #${Number(sale.id)} foi registrada${sale.total != null ? ` no valor de ${fmt(sale.total)}` : ""}. O cupom inclui os produtos, o pagamento e o texto de garantia.</p><p>A venda já está salva. Você pode reimprimir o cupom depois na aba Vendas.</p><div class="form-actions"><button class="secondary-button" id="receipt-skip">Não imprimir</button><button class="primary-button" id="receipt-confirm">Imprimir cupom</button></div>`,
+  );
+  $("#receipt-skip").onclick = closeDialog;
+  $("#receipt-confirm").onclick = async () => {
+    const button = $("#receipt-confirm");
+    button.disabled = true;
+    try {
+      await printSaleReceipt(sale.id);
+    } catch (error) {
+      toast(
+        `Venda salva. Não foi possível imprimir: ${error.message}`,
+        "error",
+      );
+    } finally {
+      button.disabled = false;
+    }
+  };
+}
+function renderSaleReceipt(sale) {
+  const payName = (method) =>
+    ({
+      DINHEIRO: "Dinheiro",
+      PIX: "PIX",
+      DEBITO: "Débito",
+      CREDITO: "Crédito",
+      OUTROS: "Outros",
+    })[method] || method;
+  return `<article class="sale-receipt"><header><h1>N&M CALÇADOS</h1><h2>CUPOM DE VENDA #${Number(sale.id)}</h2><p>DOCUMENTO NÃO FISCAL</p></header>
+    ${sale.status !== "CONCLUIDA" ? '<p class="sale-receipt-alert">VENDA CANCELADA</p>' : ""}
+    <p>Venda: ${esc(reportDate(sale.created_at))}<br>Cliente: ${esc(sale.customer_name)}<br>Atendente: ${esc(sale.user_name || "—")}${sale.order_id ? `<br>Pedido: #${Number(sale.order_id)}` : ""}</p>
+    <section><h3>PRODUTOS</h3>${sale.items.map((item) => `<div class="sale-receipt-item"><strong>${esc(item.product_name)}</strong><p>${esc(item.color)} · ${esc(item.size)}${item.legacy_cancelled ? " · ITEM CANCELADO" : ""}</p><div><span>${Number(item.quantity)} × ${fmt(item.unit_price)}</span><strong>${fmt(item.subtotal)}</strong></div>${Number(item.discount) ? `<p>Desconto do item: ${fmt(item.discount)}</p>` : ""}${Number(item.surcharge) ? `<p>Acréscimo do item: ${fmt(item.surcharge)}</p>` : ""}</div>`).join("")}</section>
+    <section class="sale-receipt-totals"><div><span>Subtotal</span><strong>${fmt(sale.subtotal)}</strong></div><div><span>Descontos totais</span><strong>${fmt(sale.discount)}</strong></div>${Number(sale.surcharge) ? `<div><span>Acréscimos</span><strong>${fmt(sale.surcharge)}</strong></div>` : ""}<div class="sale-receipt-total"><span>TOTAL</span><strong>${fmt(sale.total)}</strong></div></section>
+    <section><h3>PAGAMENTO</h3>${sale.payments.length ? sale.payments.map((payment) => `<div class="sale-receipt-payment"><span>${esc(payName(payment.method))}${payment.reconciliation_status === "LEGADO_NAO_CONCILIADO" ? " (histórico não conciliado)" : ""}</span><strong>${fmt(payment.amount)}</strong></div>`).join("") : "<p>Pagamento não informado.</p>"}</section>
+    <section><h3>GARANTIA E ATENDIMENTO</h3><p class="sale-receipt-warranty">${esc(sale.warranty_text || "O texto de garantia não foi registrado nesta venda. Consulte a loja sobre as condições e os prazos aplicáveis ao produto.")}</p></section>
+    <footer><p>Guarde este comprovante.<br>Documento não fiscal · Não substitui nota fiscal.</p><p>Emissão: ${esc(reportDate(sale.issuedAt))}<br>Horário de Brasília</p></footer>
+  </article>`;
+}
+async function printSaleReceipt(id) {
+  const receipt = await api(`/api/admin/sales/${Number(id)}/receipt`);
+  let root = $("#sale-receipt-print");
+  if (!root) {
+    root = document.createElement("div");
+    root.id = "sale-receipt-print";
+    document.body.appendChild(root);
+  }
+  root.innerHTML = renderSaleReceipt(receipt);
+  document.body.classList.remove(
+    "printing-report",
+    "report-receipt",
+    "report-summary-only",
+  );
+  document.body.classList.add("printing-sale-receipt");
+  closeDialog();
+  try {
+    window.print();
+  } catch (error) {
+    clearSaleReceiptPrint();
+    throw error;
+  }
+}
+function clearSaleReceiptPrint() {
+  document.body.classList.remove("printing-sale-receipt");
+  $("#sale-receipt-print")?.remove();
+}
+window.addEventListener("afterprint", clearSaleReceiptPrint);
 let cameraStream = null,
   cameraTimer = null,
   cameraFallbackTimer = null,
@@ -1068,7 +1171,19 @@ async function sales(page = 1) {
     '<button class="primary-button" id="new-sale">+ Nova venda ↗</button>';
   $("#new-sale").onclick = () => setView("pos");
   $("#view-content").innerHTML =
-    `<div class="panel">${table(["VENDA", "DATA", "CLIENTE", "ATENDENTE", "PAGAMENTO", "TOTAL", "STATUS", ""], d.items, (x) => `<tr><td><strong>#${x.id}</strong></td><td>${date(x.created_at)}</td><td>${esc(x.customer_name || "Balcão")}</td><td>${esc(x.user_name)}</td><td>${esc(x.payment || "—")}</td><td>${fmt(x.total)}</td><td>${badge(x.status)}</td><td>${x.status === "CONCLUIDA" && can("sales.cancel") ? `<button data-cancel-sale="${x.id}">Cancelar</button>` : ""}</td></tr>`)}</div>${pagination(d)}`;
+    `<div class="panel">${table(["VENDA", "DATA", "CLIENTE", "ATENDENTE", "PAGAMENTO", "TOTAL", "STATUS", ""], d.items, (x) => `<tr><td><strong>#${x.id}</strong></td><td>${date(x.created_at)}</td><td>${esc(x.customer_name || "Balcão")}</td><td>${esc(x.user_name)}</td><td>${esc(x.payment || "—")}</td><td>${fmt(x.total)}</td><td>${badge(x.status)}</td><td><button data-sale-receipt="${x.id}">Cupom</button> ${x.status === "CONCLUIDA" && can("sales.cancel") ? `<button data-cancel-sale="${x.id}">Cancelar</button>` : ""}</td></tr>`)}</div>${pagination(d)}`;
+  document.querySelectorAll("[data-sale-receipt]").forEach((button) => {
+    button.onclick = async () => {
+      button.disabled = true;
+      try {
+        await printSaleReceipt(Number(button.dataset.saleReceipt));
+      } catch (error) {
+        toast(error.message, "error");
+      } finally {
+        button.disabled = false;
+      }
+    };
+  });
   document.querySelectorAll("[data-cancel-sale]").forEach(
     (btn) =>
       (btn.onclick = async () => {
@@ -1357,32 +1472,192 @@ async function userPermissionsDialog(user, perms) {
     toast(error.message, "error");
   }
 }
+function reportDate(value) {
+  if (!value) return "Sem limite";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value))
+    return value.split("-").reverse().join("/");
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date(value));
+}
+function reportTable(heads, items, cells) {
+  return `<div class="report-table-wrap"><table class="report-table"><thead><tr>${heads.map((h) => `<th scope="col">${esc(h)}</th>`).join("")}</tr></thead><tbody>${
+    items.length
+      ? items
+          .map(
+            (item) =>
+              `<tr>${cells(item)
+                .map(
+                  (value, i) =>
+                    `<td data-label="${esc(heads[i])}">${esc(value)}</td>`,
+                )
+                .join("")}</tr>`,
+          )
+          .join("")
+      : `<tr><td colspan="${heads.length}">Nenhum registro para os filtros selecionados.</td></tr>`
+  }</tbody></table></div>`;
+}
+function renderReportDocument(data, options, userName) {
+  const s = data.summary,
+    f = data.filters;
+  const productName =
+    options.products.find((x) => String(x.id) === String(f.productId))?.name ||
+    "Todos";
+  const categoryName =
+    options.categories.find((x) => String(x.id) === String(f.categoryId))
+      ?.name || "Todas";
+  const paymentName = (method) =>
+    ({
+      DINHEIRO: "Dinheiro",
+      PIX: "PIX",
+      DEBITO: "Débito",
+      CREDITO: "Crédito",
+      OUTROS: "Outros",
+    })[method] ||
+    method ||
+    "—";
+  const section = (title, body, detail = false) =>
+    `<section class="report-section ${detail ? "report-detail" : ""}"><h3>${title}</h3>${body}</section>`;
+  const lines = new Map();
+  for (const item of data.saleItems) {
+    if (!lines.has(String(item.sale_id))) lines.set(String(item.sale_id), []);
+    lines.get(String(item.sale_id)).push(item);
+  }
+  return `<article class="report-document" aria-label="Relatório gerencial da loja">
+    <header class="report-heading"><strong>N&M CALÇADOS</strong><h2>RELATÓRIO GERENCIAL</h2><p>DOCUMENTO NÃO FISCAL</p></header>
+    <dl class="report-meta"><div><dt>Período</dt><dd>${esc(reportDate(f.start))} a ${esc(reportDate(f.end))}</dd></div><div><dt>Emitido em</dt><dd>${esc(reportDate(data.generatedAt))} · Horário de Brasília</dd></div><div><dt>Responsável</dt><dd>${esc(userName || "Equipe N&M")}</dd></div><div><dt>Produto</dt><dd>${esc(productName)}</dd></div><div><dt>Categoria</dt><dd>${esc(categoryName)}</dd></div></dl>
+    ${f.productId || f.categoryId ? '<p class="report-note">Vendas e compras incluem o valor integral dos documentos que contêm os itens selecionados. Ranking, estoque e movimentações consideram somente os itens filtrados.</p>' : ""}
+    ${section("01 / RESUMO DO PERÍODO", `<dl class="report-totals"><div class="report-grand-total"><dt>Vendas concluídas</dt><dd>${fmt(s.salesTotal)}</dd></div><div><dt>Quantidade de vendas</dt><dd>${s.salesCount}</dd></div><div><dt>Ticket médio</dt><dd>${fmt(s.averageTicket)}</dd></div><div><dt>Descontos concedidos</dt><dd>${fmt(s.discounts)}</dd></div><div><dt>Acréscimos</dt><dd>${fmt(s.surcharges)}</dd></div><div><dt>Vendas canceladas (fora do total)</dt><dd>${s.cancelledCount} · ${fmt(s.cancelledTotal)}</dd></div><div><dt>Compras recebidas</dt><dd>${s.purchasesCount} · ${fmt(s.purchasesTotal)}</dd></div></dl>`)}
+    ${section("02 / ESTOQUE ATUAL A CUSTO", `<dl class="report-totals"><div class="report-grand-total"><dt>Investido em estoque</dt><dd>${fmt(s.stockValue)}</dd></div><div><dt>Unidades físicas / reservadas</dt><dd>${s.physicalUnits} / ${s.reservedUnits}</dd></div><div><dt>Variações com estoque baixo</dt><dd>${s.lowStockCount}</dd></div><div><dt>Unidades com custo zerado ou ausente</dt><dd>${s.unitsWithoutCost}</dd></div></dl><p class="report-note">Posição na emissão, incluindo reservas e itens inativos com saldo. O período selecionado não reconstrói o estoque passado. Custo específico da variação ou custo do produto.</p>`)}
+    ${section("03 / FORMAS DE PAGAMENTO", reportTable(["Forma", "Situação", "Lançamentos", "Valor"], data.payment, (x) => [paymentName(x.method), x.reconciliation_status === "LEGADO_NAO_CONCILIADO" ? "Histórico não conciliado" : "Recebido", x.count, fmt(x.total)]) + '<p class="report-note">Pagamentos históricos não conciliados aparecem separados e podem exigir conferência. Uma venda pode ter mais de um lançamento.</p>')}
+    ${section(
+      "04 / VENDAS POR DIA",
+      reportTable(["Data", "Vendas", "Total"], data.sales, (x) => [
+        reportDate(x.day),
+        x.count,
+        fmt(x.total),
+      ]),
+      true,
+    )}
+    ${section("05 / PRODUTOS VENDIDOS", reportTable(["Produto", "Unidades", "Subtotal dos itens"], data.top, (x) => [x.product_name, x.quantity, fmt(x.total)]) + '<p class="report-note">Subtotais dos itens antes de descontos ou acréscimos gerais da venda. Itens históricos cancelados ficam fora deste ranking.</p>', true)}
+    ${section("06 / COMPRAS RECEBIDAS", reportTable(["Compra", "Recebimento", "Fornecedor", "Responsável", "Total"], data.purchaseDetails, (x) => [`#${x.id}`, reportDate(x.received_at), x.supplier_name || "—", x.user_name || "—", fmt(x.total)]) + '<p class="report-note">Somente compras recebidas, pela data de recebimento.</p>', true)}
+    ${section("07 / MOVIMENTAÇÕES DE ESTOQUE", reportTable(["Tipo", "Eventos", "Unidades"], data.movements, (x) => [x.type.replaceAll("_", " "), x.count, x.quantity]) + '<p class="report-note">Quantidade por tipo de evento; reservas e liberações não representam entrada ou saída física.</p>', true)}
+    ${section("08 / VENDAS E ITENS", data.saleDetails.length ? data.saleDetails.map((sale) => `<div class="report-sale"><h4>Venda #${sale.id} · ${esc(sale.status === "CONCLUIDA" ? "Concluída" : "Cancelada")}${sale.is_historical ? " · Histórica" : ""}</h4><p>${esc(reportDate(sale.created_at))} · Cliente: ${esc(sale.customer_name)} · Atendente: ${esc(sale.user_name || "—")}</p>${reportTable(["Produto / variação", "Qtd.", "Unitário", "Subtotal"], lines.get(String(sale.id)) || [], (x) => [`${x.product_name} · ${x.color} · ${x.size}${x.legacy_cancelled ? " (item cancelado)" : ""}`, x.quantity, fmt(x.unit_price), fmt(x.subtotal)])}<p class="report-sale-total">Descontos: ${fmt(sale.discount)} · Acréscimos: ${fmt(sale.surcharge)}<br><strong>Total da venda: ${fmt(sale.total)}</strong> · ${esc(sale.methods?.split(", ").map(paymentName).join(", ") || "Pagamento não informado")}</p></div>`).join("") : "<p>Nenhuma venda para os filtros selecionados.</p>", true)}
+    ${section(
+      "09 / POSIÇÃO COMPLETA DO ESTOQUE",
+      reportTable(
+        [
+          "Produto / variação",
+          "SKU",
+          "Físico",
+          "Reservado",
+          "Disponível",
+          "Mínimo",
+          "Custo un.",
+          "Custo total",
+        ],
+        data.stock,
+        (x) => [
+          `${x.name} · ${x.color} · ${x.size}`,
+          x.sku || "—",
+          x.physical_stock,
+          x.reserved_stock,
+          x.available,
+          x.minimum_stock,
+          fmt(x.unit_cost),
+          fmt(x.stock_value),
+        ],
+      ),
+      true,
+    )}
+    <footer class="report-footer">N&M Calçados · Relatório gerencial de uso interno<br>Documento não fiscal · Não substitui nota fiscal<br>Fim do relatório · Emitido em ${esc(reportDate(data.generatedAt))}</footer>
+  </article>`;
+}
+function prepareReportPrint() {
+  if (
+    document.body.classList.contains("printing-sale-receipt") ||
+    currentView !== "reports" ||
+    !$(".report-document")
+  )
+    return;
+  document.body.classList.add("printing-report");
+  document.body.classList.toggle(
+    "report-receipt",
+    $("#report-paper")?.value === "receipt",
+  );
+  document.body.classList.toggle(
+    "report-summary-only",
+    $("#report-print-detail")?.value === "summary",
+  );
+}
+function printReport() {
+  prepareReportPrint();
+  window.print();
+}
+window.addEventListener("beforeprint", prepareReportPrint);
+window.addEventListener("afterprint", () =>
+  document.body.classList.remove(
+    "printing-report",
+    "report-receipt",
+    "report-summary-only",
+  ),
+);
 async function reports() {
-  const start = filters.reportStart || "",
-    end = filters.reportEnd || "",
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const start = filters.reportStart ?? `${today.slice(0, 7)}-01`,
+    end = filters.reportEnd ?? today,
     productId = filters.reportProductId || "",
     categoryId = filters.reportCategoryId || "";
-  const [data, facets, products] = await Promise.all([
+  const [data, options] = await Promise.all([
     api(
       `/api/admin/reports?${new URLSearchParams({ start, end, productId, categoryId })}`,
     ),
-    api("/api/public/filters"),
-    api("/api/admin/products?limit=100"),
+    api("/api/admin/reports/filters"),
   ]);
-  $("#view-actions").innerHTML = "";
+  const choices = (items, selected) =>
+    items
+      .map(
+        (x) =>
+          `<option value="${x.id}" ${String(selected) === String(x.id) ? "selected" : ""}>${esc(x.name)}</option>`,
+      )
+      .join("");
+  $("#view-actions").innerHTML =
+    '<button class="primary-button" id="report-print">Imprimir / salvar PDF ↗</button>';
   $("#view-content").innerHTML =
-    `<div class="toolbar"><label class="field">De<input id="report-start" type="date" value="${esc(start)}"></label><label class="field">Até<input id="report-end" type="date" value="${esc(end)}"></label><label class="field">Produto<select id="report-product"><option value="">Todos</option>${products.items.map((x) => `<option value="${x.id}" ${String(productId) === String(x.id) ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label><label class="field">Categoria<select id="report-category"><option value="">Todas</option>${facets.categories.map((x) => `<option value="${x.id}" ${String(categoryId) === String(x.id) ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label><button class="secondary-button" id="report-apply">Aplicar filtros</button></div><div class="report-grid"><div class="panel"><h3>Vendas por dia</h3>${table(["DATA", "VENDAS", "TOTAL"], data.sales, (x) => `<tr><td>${esc(x.day)}</td><td>${x.count}</td><td>${fmt(x.total)}</td></tr>`)}</div><div class="panel"><h3>Produtos mais vendidos</h3>${table(["PRODUTO", "QTD", "TOTAL"], data.top, (x) => `<tr><td>${esc(x.product_name)}</td><td>${x.quantity}</td><td>${fmt(x.total)}</td></tr>`)}</div><div class="panel"><h3>Formas de pagamento</h3>${table(["FORMA", "VENDAS", "TOTAL"], data.payment, (x) => `<tr><td>${esc(x.method)}</td><td>${x.count}</td><td>${fmt(x.total)}</td></tr>`)}</div><div class="panel"><h3>Compras por dia</h3>${table(["DATA", "COMPRAS", "TOTAL"], data.purchases, (x) => `<tr><td>${esc(x.day)}</td><td>${x.count}</td><td>${fmt(x.total)}</td></tr>`)}</div><div class="panel"><h3>Estoque baixo</h3>${table(
-      ["PRODUTO", "VARIAÇÃO", "DISP."],
-      data.stock.filter((x) => x.available <= x.minimum_stock),
-      (x) =>
-        `<tr><td>${esc(x.name)}</td><td>${esc(x.color)} · ${esc(x.size)}</td><td>${x.available}</td></tr>`,
-    )}</div><div class="panel"><h3>Movimentações</h3>${table(["TIPO", "EVENTOS", "UNIDADES"], data.movements, (x) => `<tr><td>${esc(x.type)}</td><td>${x.count}</td><td>${x.quantity}</td></tr>`)}</div></div>`;
-  $("#report-apply").onclick = () => {
-    filters.reportStart = $("#report-start").value;
-    filters.reportEnd = $("#report-end").value;
-    filters.reportProductId = $("#report-product").value;
-    filters.reportCategoryId = $("#report-category").value;
-    reports();
+    `<form id="report-filters" class="toolbar"><label class="field">De<input id="report-start" type="date" value="${esc(start)}"></label><label class="field">Até<input id="report-end" type="date" value="${esc(end)}"></label><label class="field">Produto<select id="report-product"><option value="">Todos</option>${choices(options.products, productId)}</select></label><label class="field">Categoria<select id="report-category"><option value="">Todas</option>${choices(options.categories, categoryId)}</select></label><button class="secondary-button" type="submit">Gerar relatório</button><button class="secondary-button" type="button" id="report-clear">Todo o período</button></form><div class="toolbar report-print-options"><label class="field">Papel<select id="report-paper"><option value="a4">A4</option><option value="receipt">Cupom 80 mm</option></select></label><label class="field">Conteúdo da impressão<select id="report-print-detail"><option value="complete">Completo, com itens e estoque</option><option value="summary">Somente resumo e totais</option></select></label><p>O documento abaixo mostra os filtros aplicados. Gere novamente após alterar os filtros.</p></div>${renderReportDocument(data, options, currentUser?.name)}`;
+  $("#report-print").onclick = printReport;
+  $("#report-filters").onsubmit = (event) => {
+    event.preventDefault();
+    const nextStart = $("#report-start").value,
+      nextEnd = $("#report-end").value;
+    if (nextStart && nextEnd && nextStart > nextEnd)
+      return toast(
+        "A data inicial deve ser anterior ou igual à data final.",
+        "error",
+      );
+    Object.assign(filters, {
+      reportStart: nextStart,
+      reportEnd: nextEnd,
+      reportProductId: $("#report-product").value,
+      reportCategoryId: $("#report-category").value,
+    });
+    reports().catch((error) => toast(error.message, "error"));
+  };
+  $("#report-clear").onclick = () => {
+    Object.assign(filters, {
+      reportStart: "",
+      reportEnd: "",
+      reportProductId: "",
+      reportCategoryId: "",
+    });
+    reports().catch((error) => toast(error.message, "error"));
   };
 }
 async function settings() {

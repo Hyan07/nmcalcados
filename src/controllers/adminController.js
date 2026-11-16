@@ -14,8 +14,10 @@ import { pool } from "../database/pool.js";
 const ok = (res, data, status = 200) => res.status(status).json(data);
 const id = (req) => parse(z.coerce.number().int().positive(), req.params.id);
 export const dashboard = async (req, res) => ok(res, await reports.dashboard());
+export const reportFilters = async (req, res) =>
+  ok(res, await reports.reportFilters());
 export const report = async (req, res) =>
-  ok(res, await reports.reports(req.query));
+  ok(res, await reports.reports(parse(schemas.reportQuery, req.query)));
 export const productList = async (req, res) =>
   ok(res, await products.listProducts(req.query));
 export const productOne = async (req, res) =>
@@ -105,16 +107,23 @@ export const orderStatus = async (req, res) =>
       req.ip,
     ),
   );
-export const orderConvert = async (req, res) =>
+export const orderConvert = async (req, res) => {
+  const data = parse(schemas.payment, req.body);
   ok(
     res,
     await sales.convertOrder(
       id(req),
-      parse(schemas.payment, req.body).payment,
+      data.payment,
       req.user,
       req.ip,
+      data.warrantyText,
     ),
   );
+};
+export const receiptSettings = async (req, res) =>
+  ok(res, sales.receiptSettings());
+export const saleReceipt = async (req, res) =>
+  ok(res, await sales.saleReceipt(id(req), req.user));
 export const saleList = async (req, res) =>
   ok(res, await sales.listSales(req.query));
 export const saleCreate = async (req, res) =>

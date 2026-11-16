@@ -32,6 +32,9 @@ export const env = {
   sessionSecret:
     process.env.SESSION_SECRET ||
     "development-only-session-secret-do-not-use-in-production",
+  receiptWarranty:
+    process.env.RECEIPT_WARRANTY_TEXT?.trim() ||
+    "Guarde este comprovante para atendimento de garantia na loja. Consulte as condições e os prazos aplicáveis a cada produto.",
   reservationHours: Number(process.env.RESERVATION_EXPIRATION_HOURS || 24),
 };
 if (prod && (env.sessionSecret.length < 32 || !process.env.APP_ORIGIN)) {
@@ -69,3 +72,6 @@ if (prod) {
       "APP_ORIGIN deve ser uma origem HTTPS sem caminho ou barra final",
     );
 }
+
+if (env.receiptWarranty.length > 2000)
+  throw new Error("RECEIPT_WARRANTY_TEXT deve ter até 2000 caracteres");

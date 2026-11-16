@@ -1787,3 +1787,397 @@ input[type="file"]::file-selector-button {
 .camera-controls [hidden] {
   display: none;
 }
+
+.report-document {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: clamp(16px, 3vw, 36px);
+  border: 1px solid var(--line);
+  background: white;
+  color: #161616;
+  font:
+    13px/1.5 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+}
+.report-heading {
+  text-align: center;
+  border-bottom: 2px dashed #555;
+  padding-bottom: 20px;
+}
+.report-heading > strong {
+  font-size: 23px;
+  letter-spacing: 0.08em;
+}
+.report-heading h2 {
+  margin: 8px 0 4px;
+  font:
+    bold 17px/1.4 ui-monospace,
+    monospace;
+}
+.report-heading p {
+  margin: 0;
+  font-size: 11px;
+}
+.report-meta,
+.report-totals {
+  margin: 18px 0;
+}
+.report-meta > div,
+.report-totals > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 5px 0;
+}
+.report-meta dt,
+.report-totals dt {
+  flex: 1;
+}
+.report-meta dd,
+.report-totals dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.report-grand-total {
+  font-weight: bold;
+  font-size: 17px;
+  border-bottom: 1px solid #999;
+}
+.report-section {
+  border-top: 1px dashed #777;
+  padding-top: 16px;
+  margin-top: 20px;
+}
+.report-section h3 {
+  font:
+    bold 14px/1.4 ui-monospace,
+    monospace;
+  margin: 0 0 12px;
+}
+.report-table-wrap {
+  overflow-x: auto;
+}
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font: inherit;
+  font-size: 12px;
+  min-width: 560px;
+}
+.report-table th,
+.report-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 6px;
+  border-bottom: 1px solid #ddd;
+  overflow-wrap: anywhere;
+}
+.report-table th {
+  font-size: 11px;
+  background: #f3f3f3;
+}
+.report-note,
+.report-sale p {
+  font-size: 11px;
+  margin: 12px 0;
+}
+.report-sale {
+  border: 1px solid #ccc;
+  padding: 12px;
+  margin: 14px 0;
+}
+.report-sale h4 {
+  font:
+    bold 13px/1.4 ui-monospace,
+    monospace;
+  margin: 0;
+}
+.report-sale-total {
+  text-align: right;
+}
+.report-footer {
+  text-align: center;
+  font-size: 11px;
+  border-top: 2px dashed #555;
+  margin-top: 26px;
+  padding-top: 18px;
+}
+.report-print-options p {
+  flex: 1 1 240px;
+  font-size: 12px;
+  color: var(--muted);
+}
+@page report-a4 {
+  size: A4;
+  margin: 12mm;
+}
+@page report-coupon {
+  size: 80mm 297mm;
+  margin: 4mm;
+}
+@media print {
+  body.printing-report {
+    background: white !important;
+    color: black !important;
+    min-width: 0;
+  }
+  body.printing-report .sidebar,
+  body.printing-report .sidebar-shade,
+  body.printing-report .admin-header,
+  body.printing-report .page-top,
+  body.printing-report .mobile-nav,
+  body.printing-report .skip-link,
+  body.printing-report .toolbar,
+  body.printing-report #toast,
+  body.printing-report dialog {
+    display: none !important;
+  }
+  body.printing-report .app-shell,
+  body.printing-report .main-column,
+  body.printing-report .admin-main,
+  body.printing-report #view-content {
+    display: block !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  body.printing-report .report-document {
+    page: report-a4;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 9pt;
+  }
+  body.printing-report .report-table-wrap {
+    overflow: visible;
+  }
+  body.printing-report .report-table {
+    font-size: 8pt;
+    table-layout: fixed;
+    min-width: 0;
+  }
+  body.printing-report .report-table th {
+    font-size: 8pt;
+  }
+  body.printing-report .report-table th,
+  body.printing-report .report-table td {
+    padding: 5px 3px;
+  }
+  body.printing-report .report-table thead {
+    display: table-header-group;
+  }
+  body.printing-report .report-table tr {
+    break-inside: avoid;
+  }
+  body.printing-report .report-section h3,
+  body.printing-report .report-sale h4 {
+    break-after: avoid;
+  }
+  body.printing-report .report-heading,
+  body.printing-report .report-meta,
+  body.printing-report .report-totals,
+  body.printing-report .report-footer {
+    break-inside: avoid;
+  }
+  body.printing-report .report-sale {
+    border: 0;
+    border-top: 1px solid #999;
+    padding: 8px 0;
+    break-inside: avoid;
+  }
+  body.report-summary-only .report-detail {
+    display: none !important;
+  }
+  body.report-receipt .report-document {
+    page: report-coupon;
+    width: 72mm;
+    font-size: 9pt;
+  }
+  body.report-receipt .report-heading > strong {
+    font-size: 15pt;
+  }
+  body.report-receipt .report-heading h2 {
+    font-size: 11pt;
+  }
+  body.report-receipt .report-grand-total {
+    font-size: 11pt;
+  }
+  body.report-receipt .report-meta > div {
+    display: block;
+  }
+  body.report-receipt .report-meta dd {
+    text-align: left;
+  }
+  body.report-receipt .report-table,
+  body.report-receipt .report-table tbody,
+  body.report-receipt .report-table tr,
+  body.report-receipt .report-table td {
+    display: block;
+    width: auto;
+  }
+  body.report-receipt .report-table thead {
+    display: none;
+  }
+  body.report-receipt .report-table td {
+    border: 0;
+    padding: 2px 0;
+    font-size: 9pt;
+  }
+  body.report-receipt .report-table td::before {
+    content: attr(data-label) ": ";
+    font-weight: bold;
+  }
+  body.report-receipt .report-table td[colspan]::before {
+    content: none;
+  }
+  body.report-receipt .report-table tr {
+    border-bottom: 1px dashed #888;
+    padding: 6px 0;
+  }
+  body.report-receipt .report-note,
+  body.report-receipt .report-sale p,
+  body.report-receipt .report-footer {
+    font-size: 8pt;
+  }
+}
+
+@media print {
+  body.report-summary-only .report-section {
+    padding-top: 10px;
+    margin-top: 12px;
+  }
+  body.report-summary-only .report-meta,
+  body.report-summary-only .report-totals {
+    margin: 12px 0;
+  }
+  body.report-summary-only .report-heading {
+    padding-bottom: 12px;
+  }
+}
+
+.receipt-warranty-editor {
+  margin: 6px 0;
+}
+.receipt-warranty-editor summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.receipt-warranty-editor textarea {
+  width: 100%;
+  resize: vertical;
+}
+#sale-receipt-print {
+  display: none;
+}
+.sale-receipt {
+  color: black;
+  background: white;
+  font:
+    9pt/1.45 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+}
+.sale-receipt header,
+.sale-receipt footer {
+  text-align: center;
+}
+.sale-receipt h1 {
+  margin: 0;
+  font:
+    bold 15pt/1.4 ui-monospace,
+    monospace;
+}
+.sale-receipt h2 {
+  margin: 8px 0;
+  font:
+    bold 10pt/1.4 ui-monospace,
+    monospace;
+}
+.sale-receipt h3 {
+  font:
+    bold 10pt/1.4 ui-monospace,
+    monospace;
+  margin: 0 0 10px;
+}
+.sale-receipt p {
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+}
+.sale-receipt header,
+.sale-receipt section {
+  border-bottom: 1px dashed black;
+  padding: 10px 0;
+}
+.sale-receipt-item {
+  border-bottom: 1px dotted #999;
+  padding: 8px 0;
+  break-inside: avoid;
+}
+.sale-receipt-item:last-child {
+  border-bottom: 0;
+}
+.sale-receipt-item > div,
+.sale-receipt-totals > div,
+.sale-receipt-payment {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+}
+.sale-receipt-totals,
+.sale-receipt footer {
+  break-inside: avoid;
+}
+.sale-receipt-total {
+  font-weight: bold;
+  font-size: 12pt;
+}
+.sale-receipt-warranty {
+  white-space: pre-wrap;
+}
+.sale-receipt-alert {
+  font-weight: bold;
+  font-size: 13pt;
+  text-align: center;
+  border: 2px solid black;
+  padding: 8px;
+}
+.sale-receipt footer {
+  margin-top: 12px;
+  font-size: 8pt;
+}
+@page sale-coupon {
+  size: 80mm 297mm;
+  margin: 4mm;
+}
+@media print {
+  body.printing-sale-receipt {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-width: 0 !important;
+    background: white !important;
+  }
+  body.printing-sale-receipt > *:not(#sale-receipt-print) {
+    display: none !important;
+  }
+  body.printing-sale-receipt #sale-receipt-print {
+    display: block !important;
+    page: sale-coupon;
+    width: 72mm;
+    margin: 0;
+    padding: 0;
+  }
+  body.printing-sale-receipt .sale-receipt h3 {
+    break-after: avoid;
+  }
+}

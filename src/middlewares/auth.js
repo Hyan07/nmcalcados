@@ -39,3 +39,10 @@ export function protectWrite(req, res, next) {
     );
   next();
 }
+
+export function permitAny(...codes) {
+  return (req, res, next) =>
+    codes.some((code) => req.user?.permissions.includes(code))
+      ? next()
+      : next(new AppError("Sem permissão para esta ação.", 403, "FORBIDDEN"));
+}

@@ -1,6 +1,11 @@
 import { Router } from "express";
 import multer from "multer";
-import { requireAuth, permit, protectWrite } from "../middlewares/auth.js";
+import {
+  requireAuth,
+  permit,
+  permitAny,
+  protectWrite,
+} from "../middlewares/auth.js";
 import * as c from "../controllers/adminController.js";
 
 const router = Router();
@@ -10,6 +15,7 @@ const upload = multer({
 });
 router.use(requireAuth, protectWrite);
 router.get("/dashboard", permit("dashboard.view"), c.dashboard);
+router.get("/reports/filters", permit("reports.view"), c.reportFilters);
 router.get("/reports", permit("reports.view"), c.report);
 router.get("/products", permit("products.view"), c.productList);
 router.get("/products/barcode/:barcode", permit("products.view"), c.barcode);
@@ -38,7 +44,17 @@ router.get("/orders", permit("orders.view"), c.orderList);
 router.get("/orders/:id", permit("orders.view"), c.orderOne);
 router.patch("/orders/:id/status", permit("orders.manage"), c.orderStatus);
 router.post("/orders/:id/convert", permit("orders.manage"), c.orderConvert);
+router.get(
+  "/sales/receipt-settings",
+  permitAny("sales.view", "sales.create"),
+  c.receiptSettings,
+);
 router.get("/sales", permit("sales.view"), c.saleList);
+router.get(
+  "/sales/:id/receipt",
+  permitAny("sales.view", "sales.create"),
+  c.saleReceipt,
+);
 router.post("/sales", permit("sales.create"), c.saleCreate);
 router.post("/sales/:id/cancel", permit("sales.cancel"), c.saleCancel);
 router.get("/stock/filters", permit("stock.view"), c.stockFilters);

@@ -66,6 +66,7 @@ export const schemas = {
       .max(30),
   }),
   sale: z.object({
+    warrantyText: optionalText(2000),
     customerId: id.nullish(),
     payment: z.enum(["DINHEIRO", "PIX", "DEBITO", "CREDITO", "OUTROS"]),
     discount: cash.default(0),
@@ -84,8 +85,23 @@ export const schemas = {
     status: z.enum(["EM_ATENDIMENTO", "CONFIRMADO", "CANCELADO"]),
   }),
   payment: z.object({
+    warrantyText: optionalText(2000),
     payment: z.enum(["DINHEIRO", "PIX", "DEBITO", "CREDITO", "OUTROS"]),
   }),
+  reportQuery: z
+    .object({
+      start: z.union([z.literal(""), z.iso.date()]).optional(),
+      end: z.union([z.literal(""), z.iso.date()]).optional(),
+      productId: z.preprocess((v) => (v === "" ? undefined : v), id.optional()),
+      categoryId: z.preprocess(
+        (v) => (v === "" ? undefined : v),
+        id.optional(),
+      ),
+    })
+    .refine(
+      (v) => !v.start || !v.end || v.start <= v.end,
+      "A data inicial deve ser anterior ou igual à data final.",
+    ),
   stockQuery: z.object({
     q: z.string().trim().max(190).default(""),
     categoryId: z.preprocess((v) => (v === "" ? undefined : v), id.optional()),

@@ -269,3 +269,23 @@ O teste de integração disputa a última unidade com duas reservas simultâneas
 O dashboard mostra **Investido em estoque** em reais e em milhares: soma do estoque físico multiplicado pelo custo da variação (ou custo do produto quando não há custo específico). Inclui unidades reservadas e produtos inativos que ainda têm saldo. Unidades com custo zerado ou não informado são indicadas no cartão. O indicador representa o estoque atual a custo cadastrado, sem incluir móveis, despesas ou mercadorias já vendidas.
 
 Na tela **Estoque**, pesquise por nome, modelo, SKU ou código de barras e combine os filtros de categoria, marca, cor/tom, tamanho/apresentação, disponibilidade (com saldo, sem saldo disponível, estoque baixo ou com reservas) e status. Os filtros são aplicados no banco e preservados na paginação; **Limpar filtros** retorna à listagem completa. A disponibilidade desconta as unidades reservadas.
+
+
+### Relatório gerencial e impressão
+
+Em **Relatórios**, selecione período, produto e categoria e clique em **Gerar relatório**. O padrão é o mês atual; **Todo o período** remove as restrições. O relatório inclui resumo financeiro, vendas diárias, produtos vendidos, pagamentos separados por conciliação, compras recebidas, movimentos, vendas com seus itens e estoque atual valorizado. Não há cortes silenciosos por quantidade de linhas.
+
+Use **Imprimir / salvar PDF** e escolha **A4** ou **Cupom 80 mm**, com conteúdo completo ou somente resumo. A impressão contém o nome da loja, o período aplicado, emissão e responsável, e é identificada como **documento não fiscal**. O PDF é salvo pela janela de impressão do navegador. A opção de cupom usa páginas de 80 × 297 mm; ajuste o papel/driver da impressora térmica conforme o equipamento.
+
+Datas do relatório seguem o horário de Brasília (UTC−3). Compras usam a data de recebimento. Vendas canceladas não entram no faturamento. Filtros de produto/categoria selecionam documentos que contêm os itens: vendas, pagamentos e compras mantêm valores integrais dos documentos; ranking, estoque e movimentos usam apenas os itens filtrados. O ranking mostra subtotais antes de descontos/acréscimos gerais. Estoque é a posição atual na emissão, incluindo reservas e produtos inativos, e não uma reconstrução do saldo no fim do período. Registros históricos não conciliados aparecem identificados.
+
+
+### Cupons de venda e garantia
+
+Ao concluir uma venda no PDV ou converter uma reserva, o sistema oferece **Imprimir cupom** ou **Não imprimir**. A venda já está salva nesse momento; cancelar a impressão não cancela a venda. Em **Vendas → Cupom**, é possível reimprimir depois sem movimentar estoque.
+
+O cupom não fiscal de 80 mm inclui número e data da venda, cliente, atendente, itens/variações, quantidades, preços, descontos, total, pagamentos e garantia. A janela de impressão do navegador permite escolher a impressora. Configure papel de 80 mm no driver e desative cabeçalhos/rodapés do navegador se necessário.
+
+Em **Garantia no cupom**, antes de finalizar, o atendente pode ajustar o texto conforme os produtos vendidos. O padrão pode ser definido em `RECEIPT_WARRANTY_TEXT` (até 2.000 caracteres). O texto é copiado para `sales.warranty_text` na transação da venda/conversão; reimpressões usam esse texto original. Vendas antigas sem texto gravado mostram essa ausência, e vendas canceladas são identificadas no cupom. Nenhum prazo comercial é presumido pelo sistema.
+
+**Atualização do banco:** execute `npm run migrate` no ambiente de destino antes de publicar esta versão. A migration `003_sale_receipts.js` adiciona a coluna opcional `sales.warranty_text`, sem alterar os registros antigos. Não basta atualizar somente os arquivos JavaScript.
