@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#11236b" />
     <title>Painel | N&M Calçados</title>
-    <link rel="stylesheet" href="/css/admin.css?v=20261116-stock-search" />
-    <script type="module" src="/js/admin.js?v=20261116-stock-search"></script>
+    <link rel="stylesheet" href="/css/admin.css?v=20261116-camera" />
+    <script type="module" src="/js/admin.js?v=20261116-camera"></script>
   </head>
   <body>
     <a class="skip-link" href="#main-content">Pular para o conteúdo</a>
@@ -204,7 +204,23 @@
         <button id="camera-close" aria-label="Fechar câmera">×</button>
       </div>
       <video id="camera-video" autoplay playsinline muted></video>
-      <p>Aponte a câmera para o código do produto.</p>
+      <p>
+        Mantenha todas as barras visíveis, com boa luz. Afaste um pouco o
+        celular até o código ficar nítido.
+      </p>
+      <div class="camera-controls">
+        <button
+          id="camera-torch"
+          class="secondary-button"
+          aria-pressed="false"
+          hidden
+        >
+          Ligar lanterna
+        </button>
+        <label id="camera-zoom-control" hidden
+          >Zoom<input id="camera-zoom" type="range" aria-label="Zoom da câmera"
+        /></label>
+      </div>
     </dialog>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </body>

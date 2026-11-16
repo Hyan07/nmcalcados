@@ -28,7 +28,8 @@ let currentUser = null,
   currentView = "dashboard",
   productEditorId = null,
   filters = {},
-  posCart = [];
+  posCart = [],
+  posProduct = null;
 function csrf() {
   return decodeURIComponent(
     document.cookie
@@ -605,6 +606,7 @@ const paymentOptions = () =>
     .join("");
 async function pos() {
   posCart = [];
+  posProduct = null;
   $("#view-actions").innerHTML = "";
   $("#view-content").innerHTML =
     `<div class="pos-layout"><div class="panel"><div class="panel-head"><div><span class="eyebrow">01 / PRODUTOS</span><h3>Encontre o produto</h3></div></div><label class="input-label" for="barcode-input">Código de barras ou SKU</label><div class="scanner-bar"><input id="barcode-input" placeholder="Leia ou digite o código" autocomplete="off"><button class="secondary-button" id="camera-btn">▣ &nbsp; Ler código</button></div><p class="scanner-hint">Passe o leitor ou digite o código e pressione Enter.</p><div class="toolbar"><input id="pos-search" placeholder="Ou procure pelo nome do produto"><button class="secondary-button" id="pos-search-btn">Buscar</button></div><div class="search-results" id="pos-results"></div><button class="secondary-button pos-summary" id="pos-summary" hidden>Ver resumo da venda ↓</button></div><div class="panel pos-cart"><span class="eyebrow">02 / RESUMO</span><h3>Esta venda</h3><div id="pos-lines"></div><div class="pos-total"><span>Total</span><strong id="pos-total">R$ 0,00</strong></div><div class="pos-pay"><label class="field">Desconto geral<input id="pos-discount" type="number" min="0" step="0.01" value="0"></label><label class="field">Pagamento<select id="pos-payment">${paymentOptions()}</select></label><button class="primary-button" id="finish-sale">Finalizar venda ↗</button></div></div></div>`;
@@ -619,7 +621,6 @@ async function pos() {
         `/api/admin/products/barcode/${encodeURIComponent(code)}`,
       );
       addPos(item);
-      toast(`${item.productName} adicionado.`);
     } catch (error) {
       toast(error.message, "error");
     }
@@ -645,6 +646,7 @@ async function searchPos() {
     const data = await api(
       `/api/admin/products?${new URLSearchParams({ q, limit: 15 })}`,
     );
+    posProduct = null;
     $("#pos-results").innerHTML = data.items.length
       ? data.items
           .map(
@@ -658,38 +660,8 @@ async function searchPos() {
         (b.onclick = async () => {
           try {
             const p = await api(`/api/admin/products/${b.dataset.searchId}`);
-            $("#pos-results").innerHTML = p.variants
-              .filter((v) => v.active)
-              .map(
-                (v) =>
-                  `<div class="search-item"><div><b>${esc(p.name)} · ${esc(v.color)} · ${esc(v.size)}</b><small>${v.physical_stock - v.reserved_stock} disponível(is)</small></div><button data-add-variant="${v.id}">Adicionar +</button></div>`,
-              )
-              .join("");
-            document.querySelectorAll("[data-add-variant]").forEach(
-              (btn) =>
-                (btn.onclick = () =>
-                  addPos({
-                    variantId: Number(btn.dataset.addVariant),
-                    productName: p.name,
-                    color: p.variants.find(
-                      (v) => v.id === Number(btn.dataset.addVariant),
-                    ).color,
-                    size: p.variants.find(
-                      (v) => v.id === Number(btn.dataset.addVariant),
-                    ).size,
-                    price:
-                      p.variants.find(
-                        (v) => v.id === Number(btn.dataset.addVariant),
-                      ).price ?? p.price,
-                    available:
-                      p.variants.find(
-                        (v) => v.id === Number(btn.dataset.addVariant),
-                      ).physical_stock -
-                      p.variants.find(
-                        (v) => v.id === Number(btn.dataset.addVariant),
-                      ).reserved_stock,
-                  })),
-            );
+            posProduct = p;
+            renderPosVariants();
           } catch (error) {
             toast(error.message, "error");
           }
@@ -699,14 +671,62 @@ async function searchPos() {
     toast(error.message, "error");
   }
 }
+function renderPosVariants() {
+  if (!posProduct) return;
+  const p = posProduct;
+  $("#pos-results").innerHTML = p.variants
+    .filter((v) => v.active)
+    .map((v) => {
+      const available = v.physical_stock - v.reserved_stock;
+      const quantity =
+        posCart.find((x) => x.variantId === Number(v.id))?.quantity || 0;
+      const remaining = Math.max(0, available - quantity);
+      return `<div class="search-item"><div><b>${esc(p.name)} · ${esc(v.color)} · ${esc(v.size)}</b><small>${remaining > 0 ? `${remaining} disponível(is) para adicionar` : quantity > 0 && available > 0 ? "Esgotado para adicionar · últimas unidades nesta venda" : "Esgotado"}</small></div><button data-add-variant="${v.id}" ${remaining < 1 ? "disabled" : ""}>${remaining < 1 ? "Esgotado" : "Adicionar +"}</button></div>`;
+    })
+    .join("");
+  document.querySelectorAll("[data-add-variant]").forEach((button) => {
+    button.onclick = () => {
+      const v = p.variants.find(
+        (v) => Number(v.id) === Number(button.dataset.addVariant),
+      );
+      addPos({
+        variantId: Number(v.id),
+        productName: p.name,
+        color: v.color,
+        size: v.size,
+        price: v.price ?? p.price,
+        available: v.physical_stock - v.reserved_stock,
+      });
+    };
+  });
+}
 function addPos(item) {
   const current = posCart.find((x) => x.variantId === item.variantId);
-  if ((current?.quantity || 0) >= item.available)
-    return toast("Estoque disponível insuficiente.", "error");
+  const available = Number(item.available);
+  if (current) current.available = available;
+  if (posProduct) {
+    const variant = posProduct.variants.find(
+      (v) => Number(v.id) === item.variantId,
+    );
+    if (variant)
+      variant.physical_stock = available + Number(variant.reserved_stock);
+  }
+  if ((current?.quantity || 0) >= available) {
+    renderPosCart();
+    toast("Produto esgotado para adicionar à venda.", "error");
+    return false;
+  }
   if (current) current.quantity++;
-  else posCart.push({ ...item, quantity: 1, discount: 0 });
+  else posCart.push({ ...item, available, quantity: 1, discount: 0 });
   renderPosCart();
+  const quantity = current?.quantity || 1;
+  toast(
+    quantity === available
+      ? `${item.productName}: última unidade disponível adicionada. Esgotado para adicionar.`
+      : `${item.productName} adicionado.`,
+  );
   $("#barcode-input")?.focus();
+  return true;
 }
 function renderPosCart() {
   const lines = $("#pos-lines");
@@ -715,7 +735,7 @@ function renderPosCart() {
     ? posCart
         .map(
           (x) =>
-            `<div class="pos-line"><div><strong>${esc(x.productName)}</strong><br><small>${esc(x.color)} · ${esc(x.size)} · ${fmt(x.price)}</small></div><label class="pos-number">Qtd.<input type="number" inputmode="numeric" min="1" max="${x.available}" value="${x.quantity}" data-pos-qty="${x.variantId}" aria-label="Quantidade"></label><label class="pos-number">Desconto (R$)<input type="number" inputmode="decimal" min="0" step="0.01" value="${x.discount}" data-pos-discount="${x.variantId}" aria-label="Desconto"></label><button data-pos-remove="${x.variantId}" aria-label="Remover">×</button></div>`,
+            `<div class="pos-line"><div><strong>${esc(x.productName)}</strong><br><small>${esc(x.color)} · ${esc(x.size)} · ${fmt(x.price)}</small><small>${Math.max(0, x.available - x.quantity) === 0 ? "Esgotado para adicionar · últimas unidades nesta venda" : `${x.available - x.quantity} disponível(is) para adicionar`}</small></div><label class="pos-number">Qtd.<input type="number" inputmode="numeric" min="1" max="${x.available}" value="${x.quantity}" data-pos-qty="${x.variantId}" aria-label="Quantidade"></label><label class="pos-number">Desconto (R$)<input type="number" inputmode="decimal" min="0" step="0.01" value="${x.discount}" data-pos-discount="${x.variantId}" aria-label="Desconto"></label><button data-pos-remove="${x.variantId}" aria-label="Remover">×</button></div>`,
         )
         .join("")
     : '<div class="empty-state"><span>◇</span><h3>Venda vazia</h3><p>Leia um código ou busque um produto.</p></div>';
@@ -731,6 +751,7 @@ function renderPosCart() {
     summary.hidden = quantity === 0;
     summary.textContent = `Ver resumo · ${quantity} ${quantity === 1 ? "item" : "itens"} ↓`;
   }
+  renderPosVariants();
   lines.querySelectorAll("[data-pos-qty]").forEach(
     (el) =>
       (el.onchange = () => {
@@ -738,7 +759,7 @@ function renderPosCart() {
           (x) => x.variantId === Number(el.dataset.posQty),
         );
         const value = Number(el.value);
-        if (value < 1 || value > x.available) {
+        if (!Number.isInteger(value) || value < 1 || value > x.available) {
           toast("Quantidade inválida para o estoque.", "error");
           renderPosCart();
           return;
@@ -788,83 +809,258 @@ async function finishSale() {
 }
 let cameraStream = null,
   cameraTimer = null,
-  zxingReader = null;
+  cameraFallbackTimer = null,
+  cameraSession = 0,
+  cameraDecoder = null,
+  zxingReader = null,
+  zxingLoading = null;
+function cameraActive(session) {
+  return session === cameraSession && $("#camera-dialog").open;
+}
+async function configureCamera(track, session) {
+  const capabilities = track.getCapabilities?.() || {};
+  if (capabilities.focusMode?.includes("continuous")) {
+    await track
+      .applyConstraints({ advanced: [{ focusMode: "continuous" }] })
+      .catch(() => {});
+  }
+  if (!cameraActive(session)) return;
+  const torch = $("#camera-torch");
+  torch.hidden = !capabilities.torch;
+  torch.setAttribute("aria-pressed", "false");
+  torch.onclick = async () => {
+    const enabled = torch.getAttribute("aria-pressed") !== "true";
+    try {
+      await track.applyConstraints({ advanced: [{ torch: enabled }] });
+      if (cameraActive(session)) {
+        torch.setAttribute("aria-pressed", String(enabled));
+        torch.textContent = enabled ? "Desligar lanterna" : "Ligar lanterna";
+      }
+    } catch {
+      toast("A lanterna não está disponível nesta câmera.", "error");
+    }
+  };
+  const zoom = $("#camera-zoom");
+  $("#camera-zoom-control").hidden =
+    !capabilities.zoom || capabilities.zoom.max <= capabilities.zoom.min;
+  if (capabilities.zoom) {
+    zoom.min = capabilities.zoom.min;
+    zoom.max = Math.max(
+      capabilities.zoom.min,
+      Math.min(capabilities.zoom.max, 4),
+    );
+    zoom.step = capabilities.zoom.step || 0.1;
+    zoom.value = Math.min(
+      Number(zoom.max),
+      Math.max(
+        Number(zoom.min),
+        track.getSettings?.().zoom ?? capabilities.zoom.min,
+      ),
+    );
+    zoom.onchange = async () => {
+      try {
+        await track.applyConstraints({
+          advanced: [{ zoom: Number(zoom.value) }],
+        });
+      } catch {
+        toast("Não foi possível ajustar o zoom.", "error");
+      }
+    };
+  }
+}
+async function startCameraFallback(session) {
+  if (!cameraActive(session) || cameraDecoder === "zxing") return;
+  cameraDecoder = "zxing";
+  clearTimeout(cameraTimer);
+  clearTimeout(cameraFallbackTimer);
+  try {
+    await loadZxing();
+    if (!cameraActive(session)) return;
+    const formats = [
+      "EAN_13",
+      "EAN_8",
+      "UPC_A",
+      "UPC_E",
+      "CODE_128",
+      "CODE_39",
+      "CODE_93",
+      "ITF",
+      "CODABAR",
+    ];
+    const hints = new Map([
+      [
+        ZXing.DecodeHintType.POSSIBLE_FORMATS,
+        formats.map((name) => ZXing.BarcodeFormat[name]),
+      ],
+      [ZXing.DecodeHintType.TRY_HARDER, true],
+    ]);
+    const reader = new ZXing.BrowserMultiFormatReader(hints);
+    zxingReader = reader;
+    // Decode the playing video directly: the continuous helper waits for a
+    // new "playing" event that may never fire on an already running preview.
+    const loop = () => {
+      if (!cameraActive(session)) return;
+      let code;
+      try {
+        code = reader.decode($("#camera-video")).getText();
+      } catch (error) {
+        if (
+          !["NotFoundException", "ChecksumException", "FormatException"].some(
+            (name) => error instanceof ZXing[name],
+          )
+        ) {
+          stopCamera();
+          toast(
+            "Falha na leitura da câmera. Abra o leitor novamente.",
+            "error",
+          );
+          return;
+        }
+      }
+      if (code) {
+        onCameraCode(code, session);
+        return;
+      }
+      cameraTimer = setTimeout(loop, 150);
+    };
+    loop();
+  } catch {
+    if (!cameraActive(session)) return;
+    stopCamera();
+    toast(
+      "Não foi possível carregar o leitor. Abra a câmera novamente.",
+      "error",
+    );
+  }
+}
 async function openCamera() {
   if (!navigator.mediaDevices?.getUserMedia)
     return toast(
       "Câmera indisponível neste navegador. Use HTTPS ou o leitor USB.",
       "error",
     );
+  stopCamera();
+  const session = cameraSession;
   $("#camera-dialog").showModal();
+  $("#camera-torch").hidden = true;
+  $("#camera-torch").textContent = "Ligar lanterna";
+  $("#camera-zoom-control").hidden = true;
   try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" } },
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      },
     });
+    if (!cameraActive(session)) {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+    cameraStream = stream;
     const video = $("#camera-video");
-    video.srcObject = cameraStream;
+    video.srcObject = stream;
     await video.play();
-    if ("BarcodeDetector" in window) {
-      const detector = new BarcodeDetector({
-        formats: ["ean_13", "ean_8", "code_128", "upc_a", "upc_e"],
-      });
+    if (!cameraActive(session)) return;
+    await configureCamera(stream.getVideoTracks()[0], session);
+    if (!cameraActive(session)) return;
+    cameraFallbackTimer = setTimeout(() => startCameraFallback(session), 4000);
+    try {
+      if (!window.BarcodeDetector) throw new Error("No native reader");
+      const desired = [
+        "ean_13",
+        "ean_8",
+        "code_128",
+        "code_39",
+        "code_93",
+        "itf",
+        "codabar",
+        "upc_a",
+        "upc_e",
+      ];
+      const supported = await window.BarcodeDetector.getSupportedFormats();
+      if (!cameraActive(session) || cameraDecoder === "zxing") return;
+      const formats = desired.filter((format) => supported.includes(format));
+      if (!formats.length) throw new Error("No supported barcode formats");
+      const detector = new window.BarcodeDetector({ formats });
+      cameraDecoder = "native";
       const loop = async () => {
-        if (!cameraStream) return;
+        if (!cameraActive(session) || cameraDecoder !== "native") return;
         try {
           const codes = await detector.detect(video);
-          if (codes.length) {
-            onCameraCode(codes[0].rawValue);
+          if (!cameraActive(session) || cameraDecoder !== "native") return;
+          const code = codes.find((x) => x.rawValue?.trim())?.rawValue;
+          if (code) {
+            onCameraCode(code, session);
             return;
           }
-        } catch {}
-        cameraTimer = setTimeout(loop, 180);
+        } catch {
+          await startCameraFallback(session);
+          return;
+        }
+        cameraTimer = setTimeout(loop, 150);
       };
       loop();
-    } else {
-      await loadZxing();
-      zxingReader = new ZXing.BrowserMultiFormatReader();
-      await zxingReader.decodeFromVideoElementContinuously(video, (result) => {
-        if (result) onCameraCode(result.getText());
-      });
+    } catch {
+      await startCameraFallback(session);
     }
   } catch (error) {
+    if (!cameraActive(session)) return;
     stopCamera();
-    toast("Não foi possível abrir a câmera. Use o campo de código.", "error");
+    toast(
+      error.name === "NotAllowedError"
+        ? "Permita o acesso à câmera nas configurações do navegador."
+        : "Não foi possível abrir a câmera. Tente novamente.",
+      "error",
+    );
   }
 }
 async function loadZxing() {
   if (window.ZXing) return;
-  await new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = "/js/vendor/zxing.min.js";
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
+  if (!zxingLoading)
+    zxingLoading = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "/js/vendor/zxing.min.js";
+      script.onload = resolve;
+      script.onerror = () => {
+        zxingLoading = null;
+        script.remove();
+        reject(new Error("Barcode reader load failed"));
+      };
+      document.head.appendChild(script);
+    });
+  await zxingLoading;
 }
 function stopCamera() {
+  cameraSession++;
+  cameraDecoder = null;
   clearTimeout(cameraTimer);
+  clearTimeout(cameraFallbackTimer);
   zxingReader?.reset?.();
   zxingReader = null;
-  cameraStream?.getTracks().forEach((t) => t.stop());
+  cameraStream?.getTracks().forEach((track) => track.stop());
   cameraStream = null;
   $("#camera-video").srcObject = null;
-  $("#camera-dialog").close();
+  if ($("#camera-dialog").open) $("#camera-dialog").close();
 }
-async function onCameraCode(code) {
+async function onCameraCode(code, session = cameraSession) {
+  if (!cameraActive(session)) return;
+  code = String(code).trim();
+  if (!code) return;
   stopCamera();
   try {
     const item = await api(
       `/api/admin/products/barcode/${encodeURIComponent(code)}`,
     );
     addPos(item);
-    toast(`${item.productName} adicionado.`);
   } catch (error) {
-    toast(error.message, "error");
+    toast(`Código ${code}: ${error.message}`, "error");
   }
 }
 $("#camera-close").onclick = stopCamera;
 $("#camera-dialog").addEventListener("close", () => {
-  if (cameraStream) stopCamera();
+  if (!$("#camera-dialog").open) stopCamera();
 });
 async function sales(page = 1) {
   const d = await api(`/api/admin/sales?page=${page}`);

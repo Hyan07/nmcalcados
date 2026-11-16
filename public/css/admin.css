@@ -1013,7 +1013,7 @@ a {
   background: #171717;
   min-height: 250px;
   max-height: 65vh;
-  object-fit: cover;
+  object-fit: contain;
 }
 .camera-dialog p {
   text-align: center;
@@ -1770,4 +1770,20 @@ input[type="file"]::file-selector-button {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.camera-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.camera-controls label:not([hidden]) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.camera-controls [hidden] {
+  display: none;
 }
